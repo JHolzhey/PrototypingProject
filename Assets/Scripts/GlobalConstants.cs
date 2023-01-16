@@ -21,5 +21,6 @@ public class GlobalConstants : MonoBehaviour // static global variables succeede
         MAX_ENTITIES_PER_BUILDING_CELL = maxEntitiesPerBuildingCell;
         BUILDING_CELL_DIMENSIONS = new int2(MAP_DIMENSIONS.x, MAP_DIMENSIONS.z) / BUILDING_CELL_SIZE;
 
+        
     }
 }

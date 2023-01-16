@@ -11,6 +11,8 @@ public class CreateWalls : MonoBehaviour
     private Camera cam;
     private LineRenderer lineRenderer;
     public Polygon testPolygon;
+    public GameObject polygonObject;
+    private LineRenderer polygonRenderer;
 
     // Start is called before the first frame update
     void Start()
@@ -18,13 +20,13 @@ public class CreateWalls : MonoBehaviour
         cam = GetComponent<Camera>();
         lineRenderer = GetComponent<LineRenderer>();
         lineRenderer.positionCount = 2;
-        lineRenderer.widthMultiplier = 0.2f;
+        lineRenderer.widthMultiplier = 0.02f;
 
-        float3[] vertexPositions = new float3[] {new float3(1, 0, 0), new float3(1.5f, 2, 0), new float3(-1.5f, 2, 0), new float3(-1, 0, 0)}
+        float3[] vertexPositions = new float3[] {new float3(1, 0.2f, 0), new float3(1.5f, 2, 0), new float3(-1.5f, 2, 0), new float3(-1, 0.2f, 0)};
         testPolygon = new Polygon(vertexPositions);
-        LineRenderer polygonRenderer = gameObject.AddComponent<LineRenderer>();
-        polygonRenderer.widthMultiplier = 0.2f;
-        polygonRenderer.positionCount = vertexPositions.Length;
+        polygonRenderer = polygonObject.GetComponent<LineRenderer>();
+        polygonRenderer.positionCount = (vertexPositions.Length + 1) * 2;
+        polygonRenderer.widthMultiplier = 0.01f;
     }
 
     // Update is called once per frame
@@ -36,25 +38,44 @@ public class CreateWalls : MonoBehaviour
 
             if (Physics.Raycast(ray, out hit)) {
                 rayHit = hit.point;
-                lineRenderer.SetPosition(0, transform.position - new Vector3(0, 2, 0));
+                lineRenderer.SetPosition(0, transform.position - new Vector3(0, 0.01f, 0));
                 lineRenderer.SetPosition(1, rayHit);
+                
+                int sum = 0;
+                for (int i = 0; i < testPolygon.NumVertices; i++) {
+                    polygonRenderer.SetPosition(i, testPolygon.GetVertexPosition(i));// - testPolygon.Normal * testPolygon.Thickness/2);
+                    sum++;
+                }
+                polygonRenderer.SetPosition(testPolygon.NumVertices, testPolygon.GetVertexPosition(0));// - testPolygon.Normal * testPolygon.Thickness/2);
+
+                // for (int i = testPolygon.NumVertices; i < testPolygon.NumVertices*2; i++) {
+                //     polygonRenderer.SetPosition(i, testPolygon.GetVertexPosition(i - testPolygon.NumVertices) + testPolygon.Normal * testPolygon.Thickness/2);
+                //     sum++;
+                // }
+                // polygonRenderer.SetPosition(testPolygon.NumVertices*2, testPolygon.GetVertexPosition(0) + testPolygon.Normal * testPolygon.Thickness/2);
+
+                //print(sum);
+
+                TestRayCast(ray);
             }
         }
     }
 
-    void TestRayCast() {
-
+    void TestRayCast(Ray ray)
+    {
+        float rayRadius = 0.25f;
+        if (testPolygon.RayCastConvex(ray, rayRadius, out float3 hitPoint)) {
+            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sphere.transform.position = hitPoint;
+            sphere.transform.localScale = new float3(rayRadius*2);
+            Object.Destroy(sphere, 2.0f);
+        }
     }
 
     void OnDrawGizmos() {
         // Draw a yellow sphere at the transform's position
         Gizmos.color = Color.blue;
         //Gizmos.DrawSphere(rayHit, 1);
-
-        int index2 = testPolygon.NumVertices - 1;
-        for (int i = 0; i < testPolygon.NumVertices; i++) {
-            Gizmos.DrawLine(testPolygon.GetVertexPosition(i), testPolygon.GetVertexPosition(index2));
-        }
     }
 
 }
