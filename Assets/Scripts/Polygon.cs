@@ -31,18 +31,34 @@ public struct Polygon // Clockwise. low-level
         UpdateEdgeNormals();
     }
 
+    public Vector3[] GetFrontVertices() {
+        Vector3[] frontVertices = new Vector3[NumVertices];
+        for (int i = 0; i < NumVertices; i++) {
+            frontVertices[i] = vertices[i].Position;
+        }
+        return frontVertices;
+    }
+    public int[] GetFrontIndicesFan(int side = 0) {
+        int numTris = (NumVertices - 3) + 1;
+        int[] vertexIndices = new int[numTris*3];
+        // Debug.Log(numTris);
+        int stationaryIndex1 = 0;
+        for (int i = 0; i < numTris; i++) {
+            int index2 = i+1 + side; // 1, 2, 3
+            int index3 = i+2 + side; // 2, 3, 4
+            vertexIndices[i*3] = stationaryIndex1;  // 0, 3, 6
+            vertexIndices[(i*3)+1] = index2;        // 1, 4, 7
+            vertexIndices[(i*3)+2] = index3;        // 2, 5, 8
+        }
+        return vertexIndices;
+    }
+
     public float3 GetVertexPosition(int index) {
         return vertices[index].Position;
     }
 
-    public void UpdatePlaneEquation() {
-        if (NumVertices < 2) {
-            Normal =  math.cross(edges[0].Vector, math.up());
-        } else {
-            float3 edgeVector1 = edges[0].Vector;
-            float3 edgeVector2 = edges[1].Vector;
-            Normal =  math.normalize(math.cross(edgeVector1, edgeVector2));
-        }
+    public void UpdatePlaneEquation() { // ax + by + cz = d -> Normal = (a,b,c), Distance = d
+        Normal =  math.normalize(math.cross(edges[0].Vector, edges[1].Vector));
         Distance = math.dot(Normal, vertices[0].Position);
     }
 
@@ -51,18 +67,20 @@ public struct Polygon // Clockwise. low-level
             edges[i].UpdateNormal(Normal);
     }
 
-    public bool RayCastConvex(Ray ray, float radius, out float3 hitPoint) { // TODO: Hit can be behind ray origin. Also gotta check if line and plane are parallel
+    public bool RayCastConvex(Ray ray, float radius, out float3 hitPoint, float maxDistance = math.INFINITY) { // TODO: Hit can be behind ray origin. Also gotta check if line and plane are parallel
         float constants = math.dot(ray.origin, Normal);
         float coefficients = math.dot(ray.direction, Normal);
-        float t = (Distance - constants) / coefficients;
+        float distanceAlongRay = (Distance - constants) / coefficients;
 
-        float3 hitPointOnPlane = ray.origin + (t * ray.direction);
+        float3 hitPointOnPlane = ray.origin + (distanceAlongRay * ray.direction); // ray.direction comes normalized
         hitPoint = hitPointOnPlane;
+
+        if (distanceAlongRay < 0 || distanceAlongRay > maxDistance) return false;
 
         //float angleCoeff = 1/math.dot(Normal, ray.direction);
         return IsPointInConvex(hitPointOnPlane, radius, ray.direction);
     }
-
+    // Raycasting not fully working with spheres, going off the corners and high angle not working
     public bool IsPointInConvex(float3 pointOnPlane, float radius, float3 rayDirection) { // TODO: Hasn't been tested with enough planes yet. pointOnPlane is assumed to actually be on plane
         float dotPlaneNormalRay = math.abs(1/math.dot(Normal, math.normalize(rayDirection)));
         for (int i = 0; i < NumVertices; i++) {
@@ -70,9 +88,8 @@ public struct Polygon // Clockwise. low-level
             
             float dotEdgeNormalRay = math.abs(math.dot(edges[i].Normal, math.normalize(rayDirection)));
 
-            if (math.dot(edges[i].Normal, pointToVertex1) > radius + radius * dotEdgeNormalRay * dotPlaneNormalRay/2) // Not working: + Thickness*math.abs(dotEdgeNormalRay))
-                {//Debug.Log(dotEdgeNormalRay);
-                return false;}
+            if (math.dot(edges[i].Normal, pointToVertex1) > radius + radius * dotEdgeNormalRay * dotPlaneNormalRay) // Not working: + Thickness*math.abs(dotEdgeNormalRay))
+                return false;
         }
         return true;
     }

@@ -13,6 +13,7 @@ public class CreateWalls : MonoBehaviour
     public Polygon testPolygon;
     public GameObject polygonObject;
     private LineRenderer polygonRenderer;
+    private BuildingGrid buildingGrid;
 
     // Start is called before the first frame update
     void Start()
@@ -27,6 +28,10 @@ public class CreateWalls : MonoBehaviour
         polygonRenderer = polygonObject.GetComponent<LineRenderer>();
         polygonRenderer.positionCount = (vertexPositions.Length + 1) * 2;
         polygonRenderer.widthMultiplier = 0.01f;
+
+        buildingGrid = new BuildingGrid();
+
+        TestDrawPolygon(new GameObject("TestPolygon"), testPolygon);
     }
 
     // Update is called once per frame
@@ -41,21 +46,17 @@ public class CreateWalls : MonoBehaviour
                 lineRenderer.SetPosition(0, transform.position - new Vector3(0, 0.01f, 0));
                 lineRenderer.SetPosition(1, rayHit);
                 
-                int sum = 0;
                 for (int i = 0; i < testPolygon.NumVertices; i++) {
                     polygonRenderer.SetPosition(i, testPolygon.GetVertexPosition(i));// - testPolygon.Normal * testPolygon.Thickness/2);
-                    sum++;
                 }
                 polygonRenderer.SetPosition(testPolygon.NumVertices, testPolygon.GetVertexPosition(0));// - testPolygon.Normal * testPolygon.Thickness/2);
 
                 // for (int i = testPolygon.NumVertices; i < testPolygon.NumVertices*2; i++) {
                 //     polygonRenderer.SetPosition(i, testPolygon.GetVertexPosition(i - testPolygon.NumVertices) + testPolygon.Normal * testPolygon.Thickness/2);
-                //     sum++;
                 // }
                 // polygonRenderer.SetPosition(testPolygon.NumVertices*2, testPolygon.GetVertexPosition(0) + testPolygon.Normal * testPolygon.Thickness/2);
 
-                //print(sum);
-
+                //yield return new WaitForSeconds(10);
                 TestRayCast(ray);
             }
         }
@@ -63,29 +64,45 @@ public class CreateWalls : MonoBehaviour
 
     void TestRayCast(Ray ray)
     {
-        float rayRadius = 0.25f;
-        if (testPolygon.RayCastConvex(ray, rayRadius, out float3 hitPoint)) {
+        float rayRadius = 0f;
+        if (testPolygon.RayCastConvex(ray, rayRadius, out float3 hitPoint, 10)) {
             GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             sphere.transform.position = hitPoint;
-            sphere.transform.localScale = new float3(rayRadius*2);
+            sphere.transform.localScale = new float3(0.05f);
             Object.Destroy(sphere, 2.0f);
         }
     }
 
+     void TestDrawPolygon(GameObject obj, Polygon polygon) {
+        QuadCreator quadCreator = new QuadCreator(obj, polygon);
+     }
+
     void OnDrawGizmos() {
-        // Draw a yellow sphere at the transform's position
-        Gizmos.color = Color.blue;
-        //Gizmos.DrawSphere(rayHit, 1);
+        if (buildingGrid != null) {
+            Gizmos.color = Color.yellow;
+            Gizmos.DrawSphere(new float3(GlobalConstants.MAP_BOTTOM_LEFT), 1);
+            for (int x = 0; x < buildingGrid.dimensions.x; x++) {
+                for (int y = 0; y < buildingGrid.dimensions.y; y++) {
+                    Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(new int2(x, y)), new float3(buildingGrid.cellSize, 0.2f, buildingGrid.cellSize));
+                }
+            }
+            float3 lineStart = GameObject.Find("RayStart").transform.position;
+            float3 lineEnd = GameObject.Find("RayEnd").transform.position;
+            Gizmos.DrawLine(lineStart, lineEnd);
+            
+            List<int2> cellCoords = buildingGrid.RasterLine(lineStart, lineEnd, 0);
+            for (int i = 0; i < cellCoords.Count; i++) {
+                Gizmos.color = Color.blue;
+                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize, 0.2f, buildingGrid.cellSize));
+            }
+        }
     }
 
 }
 
-public class QuadCreator : MonoBehaviour
+public class QuadCreator
 {
-    public float width = 1;
-    public float height = 1;
-
-    public void Start()
+    public QuadCreator(GameObject gameObject, Polygon polygon)
     {
         MeshRenderer meshRenderer = gameObject.AddComponent<MeshRenderer>();
         meshRenderer.sharedMaterial = new Material(Shader.Find("Standard"));
@@ -94,23 +111,13 @@ public class QuadCreator : MonoBehaviour
 
         Mesh mesh = new Mesh();
 
-        Vector3[] vertices = new Vector3[4]
-        {
-            new Vector3(0, 0, 0),
-            new Vector3(width, 0, 0),
-            new Vector3(0, height, 0),
-            new Vector3(width, height, 0)
-        };
-        mesh.vertices = vertices;
+        mesh.vertices = polygon.GetFrontVertices();
 
-        int[] tris = new int[6]
-        {
-            // lower left triangle
-            0, 2, 1,
-            // upper right triangle
-            2, 3, 1
-        };
-        mesh.triangles = tris;
+        // int[] vertexIndices = polygon.GetFrontIndicesFan();
+        // for (int i = 0; i < vertexIndices.Length; i++) {
+        //     Debug.Log(vertexIndices[i]);
+        // }
+        mesh.triangles = polygon.GetFrontIndicesFan();
 
         Vector3[] normals = new Vector3[4]
         {
