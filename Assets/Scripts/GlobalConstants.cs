@@ -3,8 +3,9 @@ using System.Collections.Generic;
 using Unity.Mathematics;
 using UnityEngine;
 
-public class GlobalConstants : MonoBehaviour // static global variables succeeded by interface variable for changing static variables with inspector
-{
+public class GlobalConstants : MonoBehaviour
+{ // static global variables succeeded by interface variable for changing static variables with inspector
+    public static float GRAVITY;                        public float gravity = 9.8f;
     public static int3 MAP_BOTTOM_LEFT;
     public static int3 MAP_DIMENSIONS;                  public int3 mapDimensions = new int3(200,100,200); // Might make float3
     public static int BUILDING_CELL_SIZE;               public int buildingCellSize = 2;
@@ -13,6 +14,8 @@ public class GlobalConstants : MonoBehaviour // static global variables succeede
 
     void Awake()
     {
+        GRAVITY = gravity;
+
         MAP_DIMENSIONS = mapDimensions;
         MAP_BOTTOM_LEFT = -new int3(MAP_DIMENSIONS.x/2, 0, MAP_DIMENSIONS.z/2);
 

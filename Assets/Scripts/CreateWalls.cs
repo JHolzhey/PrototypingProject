@@ -7,7 +7,6 @@ using UnityEngine.Assertions;
 
 public class CreateWalls : MonoBehaviour
 {
-    private float3 rayHit;
     private Camera cam;
     private LineRenderer lineRenderer;
     public Polygon testPolygon;
@@ -15,12 +14,19 @@ public class CreateWalls : MonoBehaviour
     private LineRenderer polygonRenderer;
     private BuildingGrid buildingGrid;
 
+    private float projectileRadius = 0.03f;
+    private Trajectory[] trajectories;
+    private GameObject[] projectiles;
+    private int numTrajectories;
+    private float maxRange = 20;
+    private float initialSpeed;
+
     // Start is called before the first frame update
     void Start()
     {
         cam = GetComponent<Camera>();
         lineRenderer = GetComponent<LineRenderer>();
-        lineRenderer.positionCount = 2;
+        lineRenderer.positionCount = 10+1;
         lineRenderer.widthMultiplier = 0.02f;
 
         float3[] vertexPositions = new float3[] {new float3(1, 0.2f, 0), new float3(1.5f, 2, 0), new float3(-1.5f, 2, 0), new float3(-1, 0.2f, 0)};
@@ -32,6 +38,14 @@ public class CreateWalls : MonoBehaviour
         buildingGrid = new BuildingGrid();
 
         TestDrawPolygon(new GameObject("TestPolygon"), testPolygon);
+
+        projectiles = new GameObject[100];
+        for (int i = 0; i < 100; i++) {
+            projectiles[i] = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            projectiles[i].transform.localScale = new float3(projectileRadius*2);
+        }
+        trajectories = new Trajectory[100];
+        initialSpeed = math.sqrt(maxRange * GlobalConstants.GRAVITY);
     }
 
     // Update is called once per frame
@@ -39,12 +53,11 @@ public class CreateWalls : MonoBehaviour
     {
         if (Input.GetMouseButtonDown(0)) {
             Ray ray = cam.ScreenPointToRay(Input.mousePosition);
-            RaycastHit hit;
-
-            if (Physics.Raycast(ray, out hit)) {
-                rayHit = hit.point;
-                lineRenderer.SetPosition(0, transform.position - new Vector3(0, 0.01f, 0));
-                lineRenderer.SetPosition(1, rayHit);
+            
+            if (Physics.Raycast(ray, out RaycastHit hit)) {
+                Vector3 rayHitPosition = hit.point;
+                // lineRenderer.SetPosition(0, transform.position - new Vector3(0, 0.01f, 0));
+                // lineRenderer.SetPosition(1, rayHitPosition);
                 
                 for (int i = 0; i < testPolygon.NumVertices; i++) {
                     polygonRenderer.SetPosition(i, testPolygon.GetVertexPosition(i));// - testPolygon.Normal * testPolygon.Thickness/2);
@@ -58,6 +71,36 @@ public class CreateWalls : MonoBehaviour
 
                 //yield return new WaitForSeconds(10);
                 TestRayCast(ray);
+
+                // transform.position - new Vector3(0, 0.02f, 0)
+                ProjectileLib.ComputeTrajectory(new float3(-5.45f,0.15f,-9.4f), rayHitPosition, initialSpeed, false, out trajectories[numTrajectories]);
+                Trajectory trajectory = trajectories[numTrajectories]; // copy of struct not reference
+                if (trajectory.isInRange) {
+                    float3[] arcPositions = trajectory.GetPositionsOnArc(10);
+                    for (int i = 0; i < arcPositions.Length; i++) {
+                        lineRenderer.SetPosition(i, arcPositions[i]);
+                    }
+
+                    numTrajectories++;
+                }
+            }
+        }
+
+        for (int i = 0; i < numTrajectories; i++) { // Terrain.activeTerrain.SampleHeight(transform.position);
+            //Trajectory trajectory = trajectories[i];
+
+            float3 oldPosition = trajectories[i].position;
+            trajectories[i].Step(Time.deltaTime);
+            float3 newPosition = trajectories[i].position;
+
+            projectiles[i].transform.position = newPosition;
+
+            float terrainHeight = Terrain.activeTerrain.SampleHeight(newPosition);
+            if (newPosition.y + projectileRadius < terrainHeight) {
+                float3 changeVector = newPosition - oldPosition;
+
+                trajectories[i] = trajectories[numTrajectories - 1]; // replace with trajectory at the end
+                numTrajectories--;
             }
         }
     }
