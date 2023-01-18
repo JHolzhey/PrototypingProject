@@ -68,9 +68,10 @@ public struct Trajectory { // holds trajectory information and can do projectile
 
     public float pitchAngle { get; private set; }
     private float elapsedTime;
-    private float3 velocity;
-    public float3 position { get; private set; }
+    public float3 velocity { get; set; } // Should be private set for these 2
+    public float3 position { get; set; }
     public float horizontalDistanceTraveled { get; private set; }
+    public bool isRolling;
 
     public Trajectory(bool isInRange, float3 startPoint, float3 distanceVector, float launchAngle, float3 initialVelocity, float horizontalRangeHalf) : this() {
         this.isInRange = isInRange;
@@ -96,7 +97,7 @@ public struct Trajectory { // holds trajectory information and can do projectile
         elapsedTime += deltaTime; // 1 float add
         horizontalDistanceTraveled += horizontalSpeed * deltaTime; // 1 float add, 1 float mult
 
-        velocity -= math.up() * (GlobalConstants.GRAVITY * deltaTime); // 1 float3 add, 1 float3-float mult
+        velocity += math.down() * (GlobalConstants.GRAVITY * deltaTime); // 1 float3 add, 1 float3-float mult
         position += velocity * deltaTime; // 1 float3 add, 1 float3-float mult
 
         pitchAngle = (1 - (horizontalDistanceTraveled * inverseHorizontalRangeHalf)) * launchAngle;

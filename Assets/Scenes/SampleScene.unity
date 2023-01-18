@@ -615,7 +615,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1401738592}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -7.76, y: 0.146, z: -15.36}
+  m_LocalPosition: {x: -10.27, y: 0.146, z: 3.58}
   m_LocalScale: {x: 0.3, y: 0.3, z: 0.3}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1038,14 +1038,14 @@ Transform:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1687258581}
-  m_LocalRotation: {x: 0.16569059, y: 0.31537193, z: -0.056015205, w: 0.9327108}
+  m_LocalRotation: {x: 0.17349994, y: -0.12441922, z: 0.022110222, w: 0.9766928}
   m_LocalPosition: {x: -2.83, y: 1.77, z: -3.69}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_RootOrder: 0
-  m_LocalEulerAnglesHint: {x: 20.146, y: 37.363, z: 0.001}
+  m_LocalEulerAnglesHint: {x: 20.146, y: -14.519, z: 0.001}
 --- !u!114 &1687258586
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1095,6 +1095,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   polygonObject: {fileID: 1706432358}
+  maxRange: 40
+  mass: 1
+  friction: 0.2
 --- !u!120 &1687258588
 LineRenderer:
   serializedVersion: 2
@@ -1242,6 +1245,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5109affe5a857429b8688928ad1a5160, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  gravity: 9.8
   mapDimensions:
     x: 200
     y: 200
@@ -1447,7 +1451,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1747448959}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -5.45, y: 0.146, z: -9.43}
+  m_LocalPosition: {x: -7.96, y: 0.146, z: 9.509999}
   m_LocalScale: {x: 0.3, y: 0.3, z: 0.3}
   m_ConstrainProportionsScale: 0
   m_Children: []
