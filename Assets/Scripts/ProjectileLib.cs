@@ -23,15 +23,15 @@ public static class ProjectileLib
         }
     }
 
-    public static void ComputeTrajectory(float3 startPoint, float3 targetPoint, float initialSpeed, bool allowOutOfRange, out Trajectory trajectory) {
+    public static bool ComputeTrajectory(float3 startPoint, float3 targetPoint, float initialSpeed, bool allowOutOfRange, out Trajectory trajectory) {
         float3 distanceVector = targetPoint - startPoint;
         float3 horizontalDistanceVector = new float3(distanceVector.x, 0, distanceVector.z);
         float horizontalDistance = math.length(horizontalDistanceVector);
         
         float launchAngle = ComputeLaunchAngle(horizontalDistance, distanceVector.y, initialSpeed, out bool isInRange);
         if (!isInRange && !allowOutOfRange) {
-            trajectory = new Trajectory(isInRange); 
-            return;
+            trajectory = new Trajectory(isInRange);
+            return false;
         }
         
         float3 horizontalDirection = math.normalize(horizontalDistanceVector);
@@ -40,17 +40,67 @@ public static class ProjectileLib
         
         float horizontalRangeHalf = ((initialSpeed*initialSpeed)/GlobalConstants.GRAVITY * (math.sin(2*launchAngle))) / 2;
         
-        /*
-        float initialVerticalSpeed = initialDirection.y * initialSpeed; // TODO: initialVelocity.y
+        /* float initialVerticalSpeed = initialDirection.y * initialSpeed; // TODO: initialVelocity.y
         float flightTime
         if horizontalRangeHalf <= horizontalDistance then
             flightTime = ((initialVerticalSpeed+(math.sqrt(initialVerticalSpeed^2+(2*-g*((distanceVector.Y))))))/g)
         else          
             flightTime = ((initialVerticalSpeed-(math.sqrt(initialVerticalSpeed^2+(2*-g*((distanceVector.Y))))))/g)
         end
-        trajectory.flightTime = flightTime
-        */
+        trajectory.flightTime = flightTime */
+        
         trajectory = new Trajectory(isInRange, startPoint, distanceVector, launchAngle, initialVelocity, horizontalRangeHalf);
+        return true;
+    }
+}
+
+public struct Projectile {
+    public Trajectory trajectory;
+    public float3 velocity { get; set; } // Should be private set for these 2
+    public float3 position { get; set; }
+    public float pitchAngle { get; private set; }
+    float timeAlive;
+    float horizontalDistanceTraveled { get; set; }
+    public bool isRolling;
+
+    // public float maxRange;
+    // float initialSpeed;
+    float radius; // 0 for arrows, spears, and axes
+    float mass;
+    float friction;
+
+    public Projectile(float maxRange, float radius, float mass, float friction) : this() {
+        // this.maxRange = maxRange;
+        this.radius = radius;
+        this.mass = mass;
+        this.friction = friction;
+    }
+
+    public bool ComputeTrajectory(float3 startPoint, float3 targetPoint, float initialSpeed, bool allowOutOfRange) {
+        if (!ProjectileLib.ComputeTrajectory(startPoint, targetPoint, initialSpeed, allowOutOfRange, out trajectory)) {
+            return false;
+        }
+        velocity = trajectory.initialVelocity;
+        position = trajectory.startPoint;
+        pitchAngle = trajectory.launchAngle;
+        timeAlive = 0;
+        horizontalDistanceTraveled = 0;
+        isRolling = false;
+        return true;
+    }
+
+    public void Step(float deltaTime) { // update velocity and position
+        timeAlive += deltaTime; // 1 float add
+        horizontalDistanceTraveled += trajectory.horizontalSpeed * deltaTime; // 1 float add, 1 float mult
+
+        velocity += math.down() * (GlobalConstants.GRAVITY * deltaTime); // 1 float3 add, 1 float3-float mult
+        position += velocity * deltaTime; // 1 float3 add, 1 float3-float mult
+    } // 2 float add, 1 float mult, 2 float3 add, 2 float3-float mult
+
+    public void StepStabilized(float deltaTime) { // update pitchAngle
+        Step(deltaTime);
+        pitchAngle = (1 - (horizontalDistanceTraveled * trajectory.inverseHorizontalRangeHalf)) * trajectory.launchAngle;
+        //projectilePart.Orientation = Vector3.new(math.deg(arrowAngle), orientationY, orientationZ)
     }
 }
 
@@ -65,44 +115,23 @@ public struct Trajectory { // holds trajectory information and can do projectile
     public float horizontalSpeed { get; private set; }
     public float initialVerticalSpeed { get; private set; }
     public float3 startPoint { get; private set; }
-
-    public float pitchAngle { get; private set; }
-    private float elapsedTime;
-    public float3 velocity { get; set; } // Should be private set for these 2
-    public float3 position { get; set; }
-    public float horizontalDistanceTraveled { get; private set; }
-    public bool isRolling;
+    public float3 initialVelocity { get; private set; }
 
     public Trajectory(bool isInRange, float3 startPoint, float3 distanceVector, float launchAngle, float3 initialVelocity, float horizontalRangeHalf) : this() {
         this.isInRange = isInRange;
-        position = startPoint;
         this.startPoint = startPoint;
-        pitchAngle = launchAngle;
+        this.launchAngle = launchAngle;
         this.distanceVector = distanceVector;
-        // this.initialSpeed = initialSpeed;
-        velocity = initialVelocity;
         // this.horizontalRangeHalf = horizontalRangeHalf;
+        this.initialVelocity = initialVelocity;
         horizontalSpeed = math.sqrt(initialVelocity.x*initialVelocity.x + initialVelocity.z*initialVelocity.z);
         initialVerticalSpeed = initialVelocity.y;
 
         inverseHorizontalRangeHalf = 1/horizontalRangeHalf;
-        horizontalDistanceTraveled = 0;
-        elapsedTime = 0;
     }
     public Trajectory(bool isInRange) : this() {
         this.isInRange = isInRange;
     }
-
-    public void Step(float deltaTime) { // update velocity, position, and pitchAngle
-        elapsedTime += deltaTime; // 1 float add
-        horizontalDistanceTraveled += horizontalSpeed * deltaTime; // 1 float add, 1 float mult
-
-        velocity += math.down() * (GlobalConstants.GRAVITY * deltaTime); // 1 float3 add, 1 float3-float mult
-        position += velocity * deltaTime; // 1 float3 add, 1 float3-float mult
-
-        pitchAngle = (1 - (horizontalDistanceTraveled * inverseHorizontalRangeHalf)) * launchAngle;
-        //projectilePart.Orientation = Vector3.new(math.deg(arrowAngle), orientationY, orientationZ)
-    } // 2 float add, 1 float mult, 2 float3 add, 2 float3-float mult
 
     public float3 GetPositionAtTime(float time) {
         float horizontalDistanceTraveled = horizontalSpeed * time; // 1 float mult

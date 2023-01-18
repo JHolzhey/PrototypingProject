@@ -16,10 +16,10 @@ public class CreateWalls : MonoBehaviour
     LineRenderer polygonRenderer;
     BuildingGrid buildingGrid;
 
-    Trajectory[] trajectories;
-    GameObject[] projectiles;
+    Projectile[] projectiles;
+    GameObject[] projectileObjects;
     GameObject[] projectilesPointers;
-    int numTrajectories;
+    int numProjectiles;
     public float maxRange = 40;
     float initialSpeed;
     float projectileRadius = 0.1f;
@@ -45,15 +45,17 @@ public class CreateWalls : MonoBehaviour
         TestDrawPolygon(new GameObject("TestPolygon"), testPolygon);
 
         projectilesPointers = new GameObject[100];
-        projectiles = new GameObject[100];
+        projectileObjects = new GameObject[100];
+        projectiles = new Projectile[100];
         for (int i = 0; i < 100; i++) {
-            projectiles[i] = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            projectiles[i].transform.localScale = new float3(projectileRadius*2);
+            projectileObjects[i] = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            projectileObjects[i].transform.localScale = new float3(projectileRadius*2);
             projectilesPointers[i] = GameObject.CreatePrimitive(PrimitiveType.Cube);
             projectilesPointers[i].transform.localScale = new float3(0.01f);
             projectilesPointers[i].GetComponent<Renderer>().material.color = Color.red;
+
+            projectiles[i] = new Projectile(maxRange, projectileRadius, mass, friction);
         }
-        trajectories = new Trajectory[100];
         initialSpeed = math.sqrt(maxRange * GlobalConstants.GRAVITY);
     }
 
@@ -69,16 +71,15 @@ public class CreateWalls : MonoBehaviour
                 // lineRenderer.SetPosition(0, transform.position - new Vector3(0, 0.01f, 0));
                 // lineRenderer.SetPosition(1, rayHitPosition);
 
-                TerrainData terrainData = Terrain.activeTerrain.terrainData;
+                /* TerrainData terrainData = Terrain.activeTerrain.terrainData;
                 float3 terrainBottomLeft = Terrain.activeTerrain.GetPosition();
                 float3 normalizedPositon = (rayHitPosition - terrainBottomLeft) / terrainData.size;
                 float3 terrainNormal = terrainData.GetInterpolatedNormal(normalizedPositon.x, normalizedPositon.z);
-
-                GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                sphere.transform.localScale = new float3(0.05f, 1, 0.05f);
-                sphere.transform.position = rayHitPosition + terrainNormal * sphere.transform.localScale.y/2;
+                GameObject stick = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                stick.transform.localScale = new float3(0.05f, 1, 0.05f);
+                stick.transform.position = rayHitPosition + terrainNormal * stick.transform.localScale.y/2;
                 Quaternion rotation = Quaternion.LookRotation(math.cross(terrainNormal, math.up()), terrainNormal);
-                sphere.transform.rotation = rotation;
+                stick.transform.rotation = rotation; */
 
                 
                 for (int i = 0; i < testPolygon.umVertices; i++) {
@@ -95,15 +96,16 @@ public class CreateWalls : MonoBehaviour
                 TestRayCast(ray);
 
                 // transform.position - new Vector3(0, 0.02f, 0)
-                ProjectileLib.ComputeTrajectory(new float3(-5.45f,0.4f,-9.4f), rayHitPosition, initialSpeed, false, out trajectories[numTrajectories]);
-                Trajectory trajectory = trajectories[numTrajectories]; // copy of struct not reference
-                if (trajectory.isInRange) {
-                    float3[] arcPositions = trajectory.GetPositionsOnArc(10);
+                
+                // Projectile projectile = projectiles[numProjectiles]; // copy of struct not reference
+                if (projectiles[numProjectiles].ComputeTrajectory(new float3(-5.45f,0.4f,-9.4f), rayHitPosition, initialSpeed, false)) {
+                    float3[] arcPositions = projectiles[numProjectiles].trajectory.GetPositionsOnArc(10);
+                    // projectiles[numProjectiles].trajectory.
                     for (int i = 0; i < arcPositions.Length; i++) {
                         lineRenderer.SetPosition(i, arcPositions[i]);
                     }
 
-                    numTrajectories++;
+                    numProjectiles++;
                 }
             }
         }
@@ -117,15 +119,15 @@ public class CreateWalls : MonoBehaviour
 
     void TestUpdateProjectiles(float deltaTime)
     {
-        for (int i = 0; i < numTrajectories; i++) {
+        for (int i = 0; i < numProjectiles; i++) {
             //Trajectory trajectory = trajectories[i];
             float radius = projectileRadius;
 
-            float3 oldPosition = trajectories[i].position;
-            trajectories[i].Step(deltaTime);
-            float3 newPosition = trajectories[i].position;
+            float3 oldPosition = projectiles[i].position;
+            projectiles[i].Step(deltaTime);
+            float3 newPosition = projectiles[i].position;
 
-            projectiles[i].transform.position = newPosition; // May be overwritten in below
+            projectileObjects[i].transform.position = newPosition; // May be overwritten in below
 
             float terrainY = Terrain.activeTerrain.SampleHeight(newPosition);
 
@@ -140,22 +142,22 @@ public class CreateWalls : MonoBehaviour
             float penetration = -(math.dot(pointOnPlaneToProjectile, terrainNormal) - radius); // positive if penetrating
             if (penetration > 0)
             {
-                float currentSpeed = math.length(trajectories[i].velocity);
-                if (trajectories[i].isRolling) {
+                float currentSpeed = math.length(projectiles[i].velocity);
+                if (projectiles[i].isRolling) {
                     float3 fixPenetrationVector = (penetration-0.01f) * terrainNormal; // Pushes into the ground so next iteration will still be in ground and rolling
                     newPosition += fixPenetrationVector;
                     /* projectiles[numTrajectories - 1].transform.position = projectiles[i].transform.position; // setting this one because it's at the end
                     trajectories[i] = trajectories[numTrajectories - 1]; // replace with trajectory at the end
                     numTrajectories--; */
 
-                    float3 perpendicularVelocity = terrainNormal * math.dot(trajectories[i].velocity, terrainNormal);
-                    float3 parallelVelocity = trajectories[i].velocity - perpendicularVelocity;
+                    float3 perpendicularVelocity = terrainNormal * math.dot(projectiles[i].velocity, terrainNormal);
+                    float3 parallelVelocity = projectiles[i].velocity - perpendicularVelocity;
 
                     float normalForce = mass * GlobalConstants.GRAVITY * math.dot(math.up(), terrainNormal);
 
-                    projectiles[i].transform.position = newPosition;
-                    trajectories[i].position = newPosition; // remove perpendicular and add parallel friction
-                    trajectories[i].velocity -= (perpendicularVelocity + (parallelVelocity * (deltaTime * normalForce * friction)));
+                    projectileObjects[i].transform.position = newPosition;
+                    projectiles[i].position = newPosition; // remove perpendicular and add parallel friction
+                    projectiles[i].velocity -= (perpendicularVelocity + (parallelVelocity * (deltaTime * normalForce * friction)));
 
                 } else {
                     float3 fixPenetrationVector = (penetration) * terrainNormal;
@@ -175,30 +177,30 @@ public class CreateWalls : MonoBehaviour
 
                     float restitution = 0.5f;
                     //float normalForce = mass * GlobalConstants.GRAVITY * math.dot(math.up(), terrainNormal);
-                    Vector3 perpendicularVelocity = Vector3.Project(trajectories[i].velocity, terrainNormal);
-                    Vector3 parallelVelocity = (Vector3)trajectories[i].velocity - perpendicularVelocity;
+                    Vector3 perpendicularVelocity = Vector3.Project(projectiles[i].velocity, terrainNormal);
+                    Vector3 parallelVelocity = (Vector3)projectiles[i].velocity - perpendicularVelocity;
                     float3 result = (restitution * parallelVelocity) - restitution * perpendicularVelocity;
                     
-                    projectiles[i].transform.position = newPosition; // sphereOnTerrainPosition;
-                    trajectories[i].position = newPosition;
-                    trajectories[i].velocity = result;
-                    trajectories[i].isRolling = true;
+                    projectileObjects[i].transform.position = newPosition; // sphereOnTerrainPosition;
+                    projectiles[i].position = newPosition;
+                    projectiles[i].velocity = result;
+                    projectiles[i].isRolling = true;
                 }
             } else {
-                trajectories[i].isRolling = false;
+                projectiles[i].isRolling = false;
             }
-            GlobalConstants.CubeBetween2Points(newPosition, newPosition + trajectories[i].velocity, projectilesPointers[i]);
+            GlobalConstants.CubeBetween2Points(newPosition, newPosition + projectiles[i].velocity, projectilesPointers[i]);
         }
     }
 
     void TestRayCast(Ray ray)
     {
-        float rayRadius = 0f;
+        float rayRadius = 0.3f;
         if (testPolygon.RayCastConvex(ray, rayRadius, out float3 hitPoint, 10)) {
             GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             sphere.GetComponent<Renderer>().material.color = Color.white;
             sphere.transform.position = hitPoint;
-            sphere.transform.localScale = new float3(0.05f);
+            sphere.transform.localScale = new float3(rayRadius*2); //0.05f);
             Object.Destroy(sphere, 2.0f);
         }
     }

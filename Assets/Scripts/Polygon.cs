@@ -78,20 +78,23 @@ public struct Polygon // Clockwise. low-level
         if (distanceAlongRay < 0 || distanceAlongRay > maxDistance) return false;
 
         //float angleCoeff = 1/math.dot(Normal, ray.direction);
-        return IsPointInConvex(hitPointOnPlane, radius, ray.direction);
+        return IsPointInConvexSimple(hitPointOnPlane, radius, ray.direction);
     }
     // Raycasting not fully working with spheres, going off the corners and high angle not working
     public bool IsPointInConvex(float3 pointOnPlane, float radius, float3 rayDirection) { // TODO: Hasn't been tested with enough planes yet. pointOnPlane is assumed to actually be on plane
-        float dotPlaneNormalRay = math.abs(1/math.dot(normal, math.normalize(rayDirection)));
+        float dotPlaneNormalRay = math.abs(1/math.dot(normal, math.normalize(rayDirection))); // 1 if looking directly at plane
+        int numFalse = 0;
         for (int i = 0; i < umVertices; i++) {
             float3 pointToVertex1 = pointOnPlane - edges[i].vertex1.position;
             
             float dotEdgeNormalRay = math.abs(math.dot(edges[i].normal, math.normalize(rayDirection)));
 
-            if (math.dot(edges[i].normal, pointToVertex1) > radius + radius * dotEdgeNormalRay * dotPlaneNormalRay) // Not working: + Thickness*math.abs(dotEdgeNormalRay))
-                return false;
+            if (math.dot(edges[i].normal, pointToVertex1) > radius + radius * (dotPlaneNormalRay * dotEdgeNormalRay)) // Not working: + Thickness*math.abs(dotEdgeNormalRay))
+                numFalse++; // return false;
         }
-        return true;
+        if (numFalse > 0) Debug.Log("Multiple sides showing false");
+        return numFalse == 0;
+        // return true;
     }
 
     public bool IsPointInConvexSimple(float3 pointOnPlane, float radius, float3 rayDirection) { // TODO: Hasn't been tested with enough planes yet. pointOnPlane is assumed to actually be on plane
