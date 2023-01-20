@@ -20,12 +20,9 @@ public class BuildingGrid
         bottomLeftWorld = GlobalConstants.MAP_BOTTOM_LEFT;
 
         grid = new Cell[dimensions.x, dimensions.y];
-        for (int x = 0; x < dimensions.x; x++)
-        {
-            for (int y = 0; y < dimensions.y; y++)
-            {
-                //Debug.Log(grid[x,y].numEntities);
-                //buildingGrid[i,j] = (GameObject)Instantiate(TestMeteor, new Vector3(i, j, 0), Quaternion.identity);
+        for (int x = 0; x < dimensions.x; x++) {
+            for (int y = 0; y < dimensions.y; y++) {
+                grid[x,y] = new Cell(maxEntitiesPerCell);
             }
         }
     }
@@ -37,8 +34,8 @@ public class BuildingGrid
         //printf("Adding entity [%d] to cell: [%d | %d] gives index: [%d]\n", (int)entity, cell_coords.x, cell_coords.y, index);
         return index;
     }
-    public void RemoveEntityFromCell(int2 cellCoords, int entity_index, int e) {
-        this.grid[cellCoords.x, cellCoords.y].RemoveEntity(entity_index);
+    public void RemoveEntityFromCell(int2 cellCoords, int entityIndex, int entity) {
+        this.grid[cellCoords.x, cellCoords.y].RemoveEntity(entityIndex);
     }
 
     public void ClearAllCells() {
@@ -59,49 +56,38 @@ public class BuildingGrid
 	    return new int2((int)relativeToBottomLeftPos.x, (int)relativeToBottomLeftPos.z);
     }
 
-    void AddRadiusCells(int2 center, List<int2> rasterCellCoords, float cellRadius, int2 startCoords, bool[,] usedCellGrid) // Helper for RasterLine function // TODO: Not working totally
-    {
-        if (cellRadius == 0) {
-            rasterCellCoords.Add(center);
-        } else {
-            int intRadius = (int)cellRadius;
-            for (int X = center.x - intRadius; X <= center.x + intRadius; X++) {
-                for (int Y = center.y - intRadius; Y <= center.y + intRadius; Y++) {
-                    //if (are_cell_coords_out_of_bounds({ X, Y })) { continue; }
+    public void RayCast(Ray ray, float3 rayEnd, out RayCastResult hitResultInfo, float maxDistance = math.INFINITY) {
+        RayCast(ray.origin, ray.origin + ray.direction * maxDistance, out hitResultInfo);
+    }
 
-                    int dx = X - center.x;
-                    int dy = Y - center.y;
-                    float distanceSquared = (dx*dx) + (dy*dy);
-
-                    if (distanceSquared <= (cellRadius * cellRadius)) {
-                        int usedX = math.abs(X - startCoords.x) + intRadius;
-                        int usedY = math.abs(Y - startCoords.y) + intRadius;
-                        if (!(usedCellGrid[usedX, usedY])) {
-                            usedCellGrid[usedX, usedY] = true;
-                            rasterCellCoords.Add(new int2(X, Y));
-                        }
-                    }
-                }
+    public void RayCast(float3 rayStart, float3 rayEnd, out RayCastResult hitResultInfo) {
+        List<int2> cellCoords = RasterRay(rayStart, rayEnd);
+        hitResultInfo = new RayCastResult();
+        for (int i = 0; i < cellCoords.Count; i++) {
+            Cell cell = grid[cellCoords[i].x, cellCoords[i].y];
+            for (int j = 0; j < cell.numEntities; j++) {
+                int Entity = cell.GetEntity(j);
             }
         }
     }
-    public List<int2> RasterLine(float3 lineStart, float3 lineEnd, float radius = 0) // Separate function for radius > 0?
+
+    public List<int2> RasterRay(float3 rayStart, float3 rayEnd, float radius = 0) // Separate function for radius > 0?
     {
         List<int2> rasterCellCoords = new List<int2>();
 
-        float3 lineVector = lineEnd - lineStart;
-        if (lineVector.x <= 0) {
-            lineVector = -lineVector;
-            float3 holder = lineStart; lineStart = lineEnd; lineEnd = holder;
+        float3 rayVector = rayEnd - rayStart;
+        if (rayVector.x <= 0) {
+            rayVector = -rayVector;
+            float3 holder = rayStart; rayStart = rayEnd; rayEnd = holder;
         }
 
-        float3 startRelativeToBottomLeftPos = (lineStart - bottomLeftWorld)/ cellSize;
+        float3 startRelativeToBottomLeftPos = (rayStart - bottomLeftWorld) / cellSize;
 
-        int lineYSign = (lineVector.z > 0) ? 1 : -1;
-        float slopeM = lineVector.z / lineVector.x;
+        int lineYSign = (rayVector.z > 0) ? 1 : -1;
+        float slopeM = rayVector.z / rayVector.x;
 
-        int2 startCoords = WorldToCellCoords(lineStart);
-        int2 endCoords = WorldToCellCoords(lineEnd);
+        int2 startCoords = WorldToCellCoords(rayStart);
+        int2 endCoords = WorldToCellCoords(rayEnd);
         int currentY = startCoords.y;
 
         bool[,] usedCellGrid = new bool[0,0];
@@ -138,17 +124,48 @@ public class BuildingGrid
         }
         return rasterCellCoords;
     }
+
+    void AddRadiusCells(int2 center, List<int2> rasterCellCoords, float cellRadius, int2 startCoords, bool[,] usedCellGrid) // Helper for RasterLine function // TODO: Not working totally
+    {
+        if (cellRadius == 0) {
+            rasterCellCoords.Add(center);
+        } else {
+            int intRadius = (int)cellRadius;
+            for (int X = center.x - intRadius; X <= center.x + intRadius; X++) {
+                for (int Y = center.y - intRadius; Y <= center.y + intRadius; Y++) {
+                    //if (are_cell_coords_out_of_bounds({ X, Y })) { continue; }
+
+                    int dx = X - center.x;
+                    int dy = Y - center.y;
+                    float distanceSquared = (dx*dx) + (dy*dy);
+
+                    if (distanceSquared <= (cellRadius * cellRadius)) {
+                        int usedX = math.abs(X - startCoords.x) + intRadius;
+                        int usedY = math.abs(Y - startCoords.y) + intRadius;
+                        if (!(usedCellGrid[usedX, usedY])) {
+                            usedCellGrid[usedX, usedY] = true;
+                            rasterCellCoords.Add(new int2(X, Y));
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 struct Cell
 {
 	// High, hard coded upper limit
 	private int []entities;
-	private int numEntities; // How many entities are currently held in the array above
+	public int numEntities { get; private set; } // How many entities are currently held in the array above
 
-    public Cell(int[] b1, int numEntities) {
-        entities = b1;
-        this.numEntities = numEntities;
+    public Cell(int maxEntities) {
+        entities = new int[maxEntities];
+        numEntities = 0;
+    }
+
+    public int GetEntity(int entityIndex) {
+        return entities[entityIndex];
     }
 
 	public void RemoveEntity(int entityIndex) { // Moves entity at the end of entity list into removed index
@@ -158,20 +175,33 @@ struct Cell
 
         int entityAtEnd = this.entities[this.numEntities - 1];
         this.entities[entityIndex] = entityAtEnd;
-        //Motion& motion = registry.motions.get(entity_at_end); // Kinda hacky
+        //Motion& motion = registry.motions.get(entity_at_end);
         //motion.cell_index = entityIndex;
 
         this.numEntities--;
         //printf("Num_entities after removing: %d\n", this->num_entities);
     }
-	public int AddEntity(int entity) {
+	public int AddEntity(int entity) { // Returns newly placed entity's index
         Assert.IsTrue((this.numEntities >= 0) && (this.numEntities < entities.Length)); // "Error or need to add more space to entity list"
         this.entities[this.numEntities] = entity;
         this.numEntities++;
         //printf("Num_entities after adding = %d\n", this->num_entities);
         return this.numEntities - 1;
     }
-    public void Clear() { // Might remove entity's index too
+    public void Clear() { // TODO: Should remove entities's index too?
         this.numEntities = 0;
     }
-};
+}
+
+public struct RayCastResult
+{
+    public int hitEntity { get; private set; }
+    public float3 normal { get; private set; }
+    public float distance { get; private set; }
+
+    public RayCastResult(int hitEntity, float3 normal, float distance) {
+        this.hitEntity = hitEntity;
+        this.normal = normal;
+        this.distance = distance;
+    }
+}

@@ -8,13 +8,14 @@ using UnityEngine.Assertions;
 public class CreateWalls : MonoBehaviour
 {
     int frameNum = 0;
-    float timeDeltaBig = 0;
     Camera cam;
     LineRenderer lineRenderer;
     public Polygon testPolygon;
     public GameObject polygonObject;
     LineRenderer polygonRenderer;
+    GameObject[] polygonVertexHandles;
     BuildingGrid buildingGrid;
+    Polygon selectedPolygon;
 
     Projectile[] projectiles;
     GameObject[] projectileObjects;
@@ -22,7 +23,7 @@ public class CreateWalls : MonoBehaviour
     int numProjectiles;
     public float maxRange = 40;
     float initialSpeed;
-    float projectileRadius = 0.1f;
+    public float projectileRadius = 0.5f;
     public float mass = 1;
     public float friction = 0.05f;
 
@@ -39,8 +40,15 @@ public class CreateWalls : MonoBehaviour
         polygonRenderer = polygonObject.GetComponent<LineRenderer>();
         polygonRenderer.positionCount = (vertexPositions.Length + 1) * 2;
         polygonRenderer.widthMultiplier = 0.01f;
+        polygonVertexHandles = new GameObject[10];
+        for (int i = 0; i < 10; i++) {
+            polygonVertexHandles[i] =  GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            polygonVertexHandles[i].transform.localScale = new float3(0.2f);
+        }
 
         buildingGrid = new BuildingGrid();
+        testPolygon.AddToGrid(buildingGrid);
+        print(testPolygon.colliderSections.Length);
 
         TestDrawPolygon(new GameObject("TestPolygon"), testPolygon);
 
@@ -71,7 +79,7 @@ public class CreateWalls : MonoBehaviour
                 // lineRenderer.SetPosition(0, transform.position - new Vector3(0, 0.01f, 0));
                 // lineRenderer.SetPosition(1, rayHitPosition);
 
-                /* TerrainData terrainData = Terrain.activeTerrain.terrainData;
+                /* TerrainData terrainData = Terrain.activeTerrain.terrainData; // Testing terrain normals
                 float3 terrainBottomLeft = Terrain.activeTerrain.GetPosition();
                 float3 normalizedPositon = (rayHitPosition - terrainBottomLeft) / terrainData.size;
                 float3 terrainNormal = terrainData.GetInterpolatedNormal(normalizedPositon.x, normalizedPositon.z);
@@ -82,25 +90,20 @@ public class CreateWalls : MonoBehaviour
                 stick.transform.rotation = rotation; */
 
                 
-                for (int i = 0; i < testPolygon.umVertices; i++) {
+                for (int i = 0; i < testPolygon.numVertices; i++) {
                     polygonRenderer.SetPosition(i, testPolygon.GetVertexPosition(i));// - testPolygon.Normal * testPolygon.Thickness/2);
                 }
-                polygonRenderer.SetPosition(testPolygon.umVertices, testPolygon.GetVertexPosition(0));// - testPolygon.Normal * testPolygon.Thickness/2);
+                polygonRenderer.SetPosition(testPolygon.numVertices, testPolygon.GetVertexPosition(0));// - testPolygon.Normal * testPolygon.Thickness/2);
 
-                // for (int i = testPolygon.NumVertices; i < testPolygon.NumVertices*2; i++) {
+                // for (int i = testPolygon.NumVertices; i < testPolygon.NumVertices*2; i++) { // double sided polygon
                 //     polygonRenderer.SetPosition(i, testPolygon.GetVertexPosition(i - testPolygon.NumVertices) + testPolygon.Normal * testPolygon.Thickness/2);
                 // }
                 // polygonRenderer.SetPosition(testPolygon.NumVertices*2, testPolygon.GetVertexPosition(0) + testPolygon.Normal * testPolygon.Thickness/2);
 
-                //yield return new WaitForSeconds(10);
                 TestRayCast(ray);
-
-                // transform.position - new Vector3(0, 0.02f, 0)
                 
-                // Projectile projectile = projectiles[numProjectiles]; // copy of struct not reference
-                if (projectiles[numProjectiles].ComputeTrajectory(new float3(-5.45f,0.4f,-9.4f), rayHitPosition, initialSpeed, false)) {
+                if (projectiles[numProjectiles].ComputeTrajectory(new float3(-5.45f,1.1f,-9.4f), rayHitPosition, initialSpeed, false)) {
                     float3[] arcPositions = projectiles[numProjectiles].trajectory.GetPositionsOnArc(10);
-                    // projectiles[numProjectiles].trajectory.
                     for (int i = 0; i < arcPositions.Length; i++) {
                         lineRenderer.SetPosition(i, arcPositions[i]);
                     }
@@ -110,17 +113,12 @@ public class CreateWalls : MonoBehaviour
             }
         }
         TestUpdateProjectiles(Time.deltaTime);
-        // timeDeltaBig += Time.deltaTime;
-        // if (frameNum % 10 == 0) {
-        //     TestUpdateProjectiles(timeDeltaBig);
-        //     timeDeltaBig = 0;
-        // }
     }
 
     void TestUpdateProjectiles(float deltaTime)
     {
         for (int i = 0; i < numProjectiles; i++) {
-            //Trajectory trajectory = trajectories[i];
+            //Projectile projectile = projectiles[i]; // copy not by reference
             float radius = projectileRadius;
 
             float3 oldPosition = projectiles[i].position;
@@ -171,7 +169,7 @@ public class CreateWalls : MonoBehaviour
                     float underTerrainY = terrainY - newPosition.y;
                     float totalYArrow = underTerrainY + radius * dotDirectionNormal;
                     float totalYSphere = underTerrainY + radius;
-                    float distanceBackwards = totalYSphere * dotCoeff;
+                    float distanceBackwards = totalYSphere * dotCoeff; // replace penetration
                     float3 sphereOnTerrainPosition = newPosition - velocityDirection * distanceBackwards;
                     if (math.abs((sphereOnTerrainPosition.y - terrainY) - radius) > 0.001f) print("Error"); */
 
@@ -189,19 +187,31 @@ public class CreateWalls : MonoBehaviour
             } else {
                 projectiles[i].isRolling = false;
             }
-            GlobalConstants.CubeBetween2Points(newPosition, newPosition + projectiles[i].velocity, projectilesPointers[i]);
+            CommonLib.CubeBetween2Points(newPosition, newPosition + projectiles[i].velocity, projectilesPointers[i]);
         }
     }
 
     void TestRayCast(Ray ray)
     {
-        float rayRadius = 0.3f;
-        if (testPolygon.RayCastConvex(ray, rayRadius, out float3 hitPoint, 10)) {
+        for (int i = 0; i < selectedPolygon.numVertices; i++) {
+            polygonVertexHandles[i].transform.position = float3.zero;
+        }
+
+        //float rayRadius = 0.3f;
+        if (testPolygon.RayCastConvex(ray, out float3 hitPoint, 10)) {
             GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             sphere.GetComponent<Renderer>().material.color = Color.white;
             sphere.transform.position = hitPoint;
-            sphere.transform.localScale = new float3(rayRadius*2); //0.05f);
-            Object.Destroy(sphere, 2.0f);
+            sphere.transform.localScale = new float3(0.05f);
+            Object.Destroy(sphere, 5.0f);
+
+            selectedPolygon = testPolygon;
+            for (int i = 0; i < selectedPolygon.numVertices; i++) {
+                polygonVertexHandles[i].transform.position = selectedPolygon.GetVertexPosition(i);
+            }
+
+        } else {
+            selectedPolygon = new Polygon();
         }
     }
 
@@ -222,7 +232,7 @@ public class CreateWalls : MonoBehaviour
             float3 lineEnd = GameObject.Find("RayEnd").transform.position;
             Gizmos.DrawLine(lineStart, lineEnd);
             
-            List<int2> cellCoords = buildingGrid.RasterLine(lineStart, lineEnd, 0);
+            List<int2> cellCoords = buildingGrid.RasterRay(lineStart, lineEnd, 0);
             for (int i = 0; i < cellCoords.Count; i++) {
                 Gizmos.color = Color.blue;
                 Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize, 0.2f, buildingGrid.cellSize));
@@ -243,13 +253,13 @@ public class QuadCreator
 
         Mesh mesh = new Mesh();
 
-        mesh.vertices = polygon.GetFrontVertices();
+        mesh.vertices = polygon.GetFaceVertices();
 
         // int[] vertexIndices = polygon.GetFrontIndicesFan();
         // for (int i = 0; i < vertexIndices.Length; i++) {
         //     Debug.Log(vertexIndices[i]);
         // }
-        mesh.triangles = polygon.GetFrontIndicesFan();
+        mesh.triangles = polygon.GetFaceTriIndicesFan(0);
 
         Vector3[] normals = new Vector3[4]
         {
