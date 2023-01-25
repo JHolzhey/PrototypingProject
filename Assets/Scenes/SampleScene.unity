@@ -615,7 +615,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1401738592}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -10.27, y: 0.146, z: 3.58}
+  m_LocalPosition: {x: -98.36, y: 0.146, z: -98.43}
   m_LocalScale: {x: 0.3, y: 0.3, z: 0.3}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1096,8 +1096,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   polygonObject: {fileID: 1706432358}
   maxRange: 40
+  projectileRadius: 0.5
   mass: 1
   friction: 0.2
+  buildingScriptableObject: {fileID: 0}
 --- !u!120 &1687258588
 LineRenderer:
   serializedVersion: 2
@@ -1451,7 +1453,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1747448959}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -7.96, y: 0.146, z: 9.509999}
+  m_LocalPosition: {x: -93.46, y: 0.146, z: -92.5}
   m_LocalScale: {x: 0.3, y: 0.3, z: 0.3}
   m_ConstrainProportionsScale: 0
   m_Children: []
