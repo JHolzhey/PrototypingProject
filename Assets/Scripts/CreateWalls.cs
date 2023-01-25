@@ -12,6 +12,7 @@ public class CreateWalls : MonoBehaviour
     LineRenderer lineRenderer;
     public Polygon testPolygon;
     public GameObject polygonObject;
+    public Polygon testPolygon2;
     LineRenderer polygonRenderer;
     GameObject[] polygonVertexHandles;
     BuildingGrid buildingGrid;
@@ -26,6 +27,8 @@ public class CreateWalls : MonoBehaviour
     public float projectileRadius = 0.5f;
     public float mass = 1;
     public float friction = 0.05f;
+
+    public BuildingScriptableObject buildingScriptableObject;
 
     // Start is called before the first frame update
     void Start()
@@ -46,11 +49,24 @@ public class CreateWalls : MonoBehaviour
             polygonVertexHandles[i].transform.localScale = new float3(0.2f);
         }
 
+        float3[] vertexPositions2 = new float3[] {new float3(1, 0.2f, -10), new float3(1.5f, 2, -12), new float3(-1.5f, 2, -12), new float3(-1, 0.2f, -10)};
+        testPolygon2 = new Polygon(vertexPositions);
+
         buildingGrid = new BuildingGrid();
         testPolygon.AddToGrid(buildingGrid);
         print(testPolygon.colliderSections.Length);
-
+        
         TestDrawPolygon(new GameObject("TestPolygon"), testPolygon);
+        TestDrawPolygon(new GameObject("TestPolygon2"), testPolygon2);
+
+        List<int2> cellCoords = buildingGrid.RasterPolygon(testPolygon2);
+        print("Count: " + cellCoords.Count);
+        for (int i = 0; i < cellCoords.Count; i++) {
+            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            sphere.transform.position = buildingGrid.CellCoordsToWorld(cellCoords[i]) + new float3(0,0.2f,0);
+            sphere.transform.localScale = new float3(0.2f);
+        }
+        
 
         projectilesPointers = new GameObject[100];
         projectileObjects = new GameObject[100];
@@ -113,6 +129,13 @@ public class CreateWalls : MonoBehaviour
             }
         }
         TestUpdateProjectiles(Time.deltaTime);
+        if (Input.GetKeyDown(KeyCode.T)) {
+            NewWall();
+        }
+    }
+
+    void NewWall() {
+
     }
 
     void TestUpdateProjectiles(float deltaTime)
@@ -164,7 +187,7 @@ public class CreateWalls : MonoBehaviour
                     float3 velocityDirection = math.normalize(newPosition - oldPosition);
                     float3 reflectDirection = math.reflect(velocityDirection, terrainNormal);
                     
-                    /* float dotDirectionNormal = math.dot(-velocityDirection, terrainNormal);
+                    /* float dotDirectionNormal = math.dot(-velocityDirection, terrainNormal); // already in Polygon SphereCasting function
                     float dotCoeff = 1/dotDirectionNormal;
                     float underTerrainY = terrainY - newPosition.y;
                     float totalYArrow = underTerrainY + radius * dotDirectionNormal;
@@ -177,17 +200,18 @@ public class CreateWalls : MonoBehaviour
                     //float normalForce = mass * GlobalConstants.GRAVITY * math.dot(math.up(), terrainNormal);
                     Vector3 perpendicularVelocity = Vector3.Project(projectiles[i].velocity, terrainNormal);
                     Vector3 parallelVelocity = (Vector3)projectiles[i].velocity - perpendicularVelocity;
-                    float3 result = (restitution * parallelVelocity) - restitution * perpendicularVelocity;
+                    float3 result = (parallelVelocity) - restitution * perpendicularVelocity;
+                    float3 reflectedVelocity = MathLib.Reflect(projectiles[i].velocity, terrainNormal, 0.4f);
                     
                     projectileObjects[i].transform.position = newPosition; // sphereOnTerrainPosition;
                     projectiles[i].position = newPosition;
-                    projectiles[i].velocity = result;
+                    projectiles[i].velocity = reflectedVelocity; // result;
                     projectiles[i].isRolling = true;
                 }
             } else {
                 projectiles[i].isRolling = false;
             }
-            CommonLib.CubeBetween2Points(newPosition, newPosition + projectiles[i].velocity, projectilesPointers[i]);
+            CommonLib.CubeBetween2Points(newPosition, newPosition + projectiles[i].velocity, projectilesPointers[i]); // model velocity
         }
     }
 
@@ -232,10 +256,18 @@ public class CreateWalls : MonoBehaviour
             float3 lineEnd = GameObject.Find("RayEnd").transform.position;
             Gizmos.DrawLine(lineStart, lineEnd);
             
-            List<int2> cellCoords = buildingGrid.RasterRay(lineStart, lineEnd, 0);
+            List<int2> cellCoords = buildingGrid.RasterRay(lineStart, lineEnd);
+            print("Count: " + cellCoords.Count);
             for (int i = 0; i < cellCoords.Count; i++) {
                 Gizmos.color = Color.blue;
                 Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize, 0.2f, buildingGrid.cellSize));
+            }
+
+            List<int2> cellCoords2 = buildingGrid.RasterRayOld(lineStart, lineEnd, 0);
+            print("Count2: " + cellCoords2.Count);
+            for (int i = 0; i < cellCoords2.Count; i++) {
+                Gizmos.color = Color.red;
+                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize-0.1f, 0.2f, buildingGrid.cellSize-0.1f));
             }
         }
     }

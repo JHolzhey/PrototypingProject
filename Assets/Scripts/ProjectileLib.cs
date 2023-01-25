@@ -22,7 +22,7 @@ public static class ProjectileLib
             isInRange = true; return answerAngle2; //print("Lofted") // TODO: Get rid of this: it's never used, never happens in original slingshot too
         }
     }
-
+    // Trajectory is a struct that contains important projectile trajectory values used in
     public static bool ComputeTrajectory(float3 startPoint, float3 targetPoint, float initialSpeed, bool allowOutOfRange, out Trajectory trajectory) {
         float3 distanceVector = targetPoint - startPoint;
         float3 horizontalDistanceVector = new float3(distanceVector.x, 0, distanceVector.z);
@@ -40,16 +40,18 @@ public static class ProjectileLib
         
         float horizontalRangeHalf = ((initialSpeed*initialSpeed)/GlobalConstants.GRAVITY * (math.sin(2*launchAngle))) / 2;
         
-        /* float initialVerticalSpeed = initialDirection.y * initialSpeed; // TODO: initialVelocity.y
-        float flightTime
-        if horizontalRangeHalf <= horizontalDistance then
-            flightTime = ((initialVerticalSpeed+(math.sqrt(initialVerticalSpeed^2+(2*-g*((distanceVector.Y))))))/g)
-        else          
-            flightTime = ((initialVerticalSpeed-(math.sqrt(initialVerticalSpeed^2+(2*-g*((distanceVector.Y))))))/g)
-        end
-        trajectory.flightTime = flightTime */
+        float initialVerticalSpeed = initialDirection.y * initialSpeed; // TODO: initialVelocity.y
+        float flightTime;
+        if (horizontalRangeHalf <= horizontalDistance) {
+            flightTime = ((initialVerticalSpeed+(math.sqrt(math.pow(initialVerticalSpeed,2)+(2*-GlobalConstants.GRAVITY*((distanceVector.y))))))/GlobalConstants.GRAVITY);
+        } else {
+            flightTime = ((initialVerticalSpeed-(math.sqrt(math.pow(initialVerticalSpeed,2)+(2*-GlobalConstants.GRAVITY*((distanceVector.y))))))/GlobalConstants.GRAVITY);
+        }
+        Debug.Log("flightTime: " + flightTime);
+        Debug.Log("flightTime2: " + (horizontalDistance / math.sqrt(initialVelocity.x*initialVelocity.x + initialVelocity.z*initialVelocity.z)));
+        // trajectory.flightTime = flightTime
         
-        trajectory = new Trajectory(isInRange, startPoint, distanceVector, launchAngle, initialVelocity, horizontalRangeHalf);
+        trajectory = new Trajectory(isInRange, startPoint, distanceVector, launchAngle, initialVelocity, horizontalRangeHalf, horizontalDistance);
         return true;
     }
 }
@@ -112,20 +114,23 @@ public struct Trajectory { // holds trajectory information and can do projectile
     // public float3 initialVelocity { get; private set; }
     // public float horizontalRangeHalf { get; private set; }
     public float inverseHorizontalRangeHalf { get; private set; }
-    public float horizontalSpeed { get; private set; }
-    public float initialVerticalSpeed { get; private set; }
+    
     public float3 startPoint { get; private set; }
     public float3 initialVelocity { get; private set; }
+    public float horizontalSpeed { get; private set; } // constant throughout flight
+    public float initialVerticalSpeed { get; private set; }
+    public float flightTime { get; private set; }
 
-    public Trajectory(bool isInRange, float3 startPoint, float3 distanceVector, float launchAngle, float3 initialVelocity, float horizontalRangeHalf) : this() {
+    public Trajectory(bool isInRange, float3 startPoint, float3 distanceVector, float launchAngle, float3 initialVelocity, float horizontalRangeHalf, float horizontalDistance) : this() {
         this.isInRange = isInRange;
-        this.startPoint = startPoint;
         this.launchAngle = launchAngle;
         this.distanceVector = distanceVector;
         // this.horizontalRangeHalf = horizontalRangeHalf;
+        this.startPoint = startPoint;
         this.initialVelocity = initialVelocity;
         horizontalSpeed = math.sqrt(initialVelocity.x*initialVelocity.x + initialVelocity.z*initialVelocity.z);
         initialVerticalSpeed = initialVelocity.y;
+        flightTime = horizontalDistance / horizontalSpeed;
 
         inverseHorizontalRangeHalf = 1/horizontalRangeHalf;
     }

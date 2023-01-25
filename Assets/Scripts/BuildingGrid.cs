@@ -71,7 +71,78 @@ public class BuildingGrid
         }
     }
 
-    public List<int2> RasterRay(float3 rayStart, float3 rayEnd, float radius = 0) // Separate function for radius > 0?
+    public List<int2> RasterRay(float3 rayStart, float3 rayEnd) {
+        List<int2> rasterCellCoords = new List<int2>();
+        RasterRay(rayStart, rayEnd, ref rasterCellCoords);
+        return rasterCellCoords;
+    }
+
+    public void RasterRay(float3 rayStart, float3 rayEnd, ref List<int2> rasterCellCoords)
+    {
+        //List<int2> rasterCellCoords = new List<int2>();
+
+        float3 rayVector = rayEnd - rayStart;
+        float3 startRelativeToBottomLeftPos = (rayStart - bottomLeftWorld) / cellSize;
+
+        int2 startCoords = WorldToCellCoords(rayStart);
+        int2 endCoords = WorldToCellCoords(rayEnd);
+
+        int signY = (rayVector.z > 0) ? 1 : -1;
+        int signX = (rayVector.x > 0) ? 1 : -1;
+        float slopeM = rayVector.z / rayVector.x;
+        float interceptB = (-slopeM * startRelativeToBottomLeftPos.x) + startRelativeToBottomLeftPos.z;
+
+        int numXGridLinesBtw = math.abs(endCoords.x - startCoords.x);
+        int boolX = (signX > 0) ? 1 : 0; // For offsetting x axis values when ray is negative x
+
+        int currentX = startCoords.x + (1 - boolX);  int currentY = startCoords.y;
+        for (int I = 0; I < numXGridLinesBtw; I++) {
+            int X = startCoords.x + (I * signX) + boolX;
+            int Y = (int)(slopeM * X + interceptB); // y = m * x + b (where b is initial z position)
+            
+            for (int Y0 = currentY; Y0 != Y + signY; Y0 += signY) 
+                rasterCellCoords.Add(new int2(currentX - (1 - boolX), Y0));
+
+            currentX = X;  currentY = Y;
+        }
+        for (int Y0 = currentY; Y0 != endCoords.y; Y0 += signY) // Y0 != endCoords.y + signY;
+            rasterCellCoords.Add(new int2(currentX - (1 - boolX), Y0));
+        //return rasterCellCoords;
+    }
+
+    public List<int2> RasterPolygon(Polygon polygon) // Separate function for radius > 0?
+    {
+        List<int2> rasterCellCoords = new List<int2>();
+
+        List<int2> bottomEdgeCellCoords = new List<int2>();
+        List<int2> topEdgeCellCoords = new List<int2>();
+        List<int2> currentEdgeCellCoords = new List<int2>();
+        int startingEdgeIndex = -1;
+        bool isCurrentedgeTop = polygon.GetEdge(0).vector.x > 0;
+        for (int i = 1; i < polygon.numVertices; i++) {
+            bool isTopEdge = polygon.GetEdge(i).vector.x > 0;
+            if (isTopEdge ^ isCurrentedgeTop) {
+                startingEdgeIndex = i;
+                currentEdgeCellCoords = isTopEdge ? topEdgeCellCoords : bottomEdgeCellCoords;
+            }
+        }
+        for (int i = startingEdgeIndex; i < polygon.numVertices + startingEdgeIndex; i++) { // 5 and 3
+            int index = i;
+            if (i >= polygon.numVertices) { // i == 5, numVertices == 5
+                index = i - polygon.numVertices;
+            }
+            Edge edge = polygon.GetEdge(index);
+            RasterRay(edge.vertex1.position, edge.vertex2.position, ref currentEdgeCellCoords);
+
+            
+        }
+
+        
+        return rasterCellCoords;
+    }
+    
+
+    public List<int2> RasterRayOld(float3 rayStart, float3 rayEnd, float radius = 0) // Separate function for radius > 0?
     {
         List<int2> rasterCellCoords = new List<int2>();
 

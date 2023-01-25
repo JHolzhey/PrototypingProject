@@ -7,7 +7,7 @@ using UnityEngine.Assertions;
 public struct Polygon // Clockwise. low-level
 {
     Vertex[] vertices;
-    Edge[] edges; // Edges by vertices in triangle are: (0 - 1), (1 - 2), (2 - 0)
+    Edge[] edges; // Edges by vertices in a triangle are: (0 - 1), (1 - 2), (2 - 0)
     public ColliderSection[] colliderSections;
     public int numVertices { get; private set; }
     public float3 normal { get; private set; }
@@ -57,13 +57,17 @@ public struct Polygon // Clockwise. low-level
         return vertexIndices;
     }
 
-    public float3 GetVertexPosition(int index) {
+    public float3 GetVertexPosition(int index) { // Good enough?
         return vertices[index].position;
+    }
+
+    public Edge GetEdge(int index) { // Good?
+        return edges[index];
     }
 
     public void UpdatePlaneEquation() { // ax + by + cz = d -> Normal = (a,b,c), Distance = d
         normal =  math.normalize(math.cross(edges[0].vector, edges[1].vector));
-        normalDistance = math.dot(normal, vertices[0].position);
+        planeDistance = math.dot(normal, vertices[0].position);
     }
 
     public void UpdateEdgeNormals() {
@@ -71,20 +75,24 @@ public struct Polygon // Clockwise. low-level
             edges[i].UpdateNormal(normal);
     }
 
+    public void GetMaxExtents(out float3 minPosition, out float3 maxPosition) {
+        maxPosition = new float3(float.MinValue);
+        minPosition = new float3(float.MaxValue);
+        for (int i = 0; i < numVertices; i++) {
+            float3 vertexPos = GetVertexPosition(i);
+            maxPosition = math.max(maxPosition, vertexPos);
+            minPosition = math.min(minPosition, vertexPos);
+        }
+    }
+
     public void AddToGrid(BuildingGrid grid) {
         if (colliderSections != null) {
             RemoveFromGrid(grid);
         }
         if (normal.y < 0.1) {
-            float3 maxPosition = new float3(float.MinValue);
-            float3 minPosition = new float3(float.MaxValue);
-            for (int i = 0; i < numVertices; i++) {
-                float3 vertexPos = GetVertexPosition(i);
-                maxPosition = math.max(maxPosition, vertexPos);
-                minPosition = math.min(minPosition, vertexPos);
-            }
-            Debug.Log("maxPosition: " + maxPosition);
-            Debug.Log("minPosition: " + minPosition);
+            GetMaxExtents(out float3 minPosition, out float3 maxPosition);
+            //Debug.Log("maxPosition: " + maxPosition);
+            //Debug.Log("minPosition: " + minPosition);
 
             int Entity = 0;
             List<int2> cellCoords = grid.RasterRay(minPosition, maxPosition);
@@ -107,7 +115,7 @@ public struct Polygon // Clockwise. low-level
     public bool RayCastConvex(Ray ray, out float3 hitPoint, float maxDistance = math.INFINITY) {
         float constants = math.dot(ray.origin, normal);
         float coefficients = math.dot(ray.direction, normal);
-        float distanceAlongRay = (normalDistance - constants) / coefficients;
+        float distanceAlongRay = (planeDistance - constants) / coefficients;
 
         float3 hitPointOnPlane = ray.origin + (distanceAlongRay * ray.direction); // ray.direction comes normalized
         hitPoint = hitPointOnPlane;
@@ -120,11 +128,11 @@ public struct Polygon // Clockwise. low-level
     public bool SphereCastConvex(Ray ray, float radius, out float3 hitPoint, float maxDistance = math.INFINITY) { // TODO: Gotta check if line and plane are parallel
         float constants = math.dot(ray.origin, normal);
         float coefficients = math.dot(ray.direction, normal);
-        float distanceAlongRay = (normalDistance - constants) / coefficients;
+        float distanceAlongRay = (planeDistance - constants) / coefficients;
 
         float3 hitPointOnPlane = ray.origin + (distanceAlongRay * ray.direction); // ray.direction comes normalized
 
-        float dotDirectionNormal = math.dot(-ray.direction, normal);
+        float dotDirectionNormal = math.dot(-ray.direction, normal); // TODO: Move this stuff down
         float dotCoeff = 1/dotDirectionNormal;
         float penetration = radius;
         float distanceBackwards = penetration * dotCoeff;
@@ -143,76 +151,34 @@ public struct Polygon // Clockwise. low-level
         
         float3 rayRight = math.cross(math.up(), rayDirection);
         float3 rayUp = math.cross(rayRight, rayDirection);
-
-        int falseEdgeIndex = -1;
+        
         for (int i = 0; i < numVertices; i++) {
             float3 vertex1ToPoint = point - edges[i].vertex1.position;
 
             if (math.dot(edges[i].normal, vertex1ToPoint) > 0) {
-                falseEdgeIndex = i;
-                break;
-                
-                /* float3 edgeDirection = math.normalize(edges[falseEdgeIndex].vector);
-                float3 crossNormal = math.normalize(math.cross(edgeDirection, rayDirection));
-                shortestDistanceBtwLines = math.dot(crossNormal, -vertex1ToPoint);
-                
-                if (shortestDistanceBtwLines > radius) {
-                    return new float3(100,100,100);
-                } */
-            }
-        }
-        if (falseEdgeIndex >= 0) {
-            float3 vertex1ToPoint = point - edges[falseEdgeIndex].vertex1.position;
-            float3 edgeDirection = math.normalize(edges[falseEdgeIndex].vector);
-            float3 crossNormal = math.normalize(math.cross(edgeDirection, rayDirection));
-            float shortestDistanceBtwLines = math.dot(crossNormal, -vertex1ToPoint);
+                float3 edgeDirection = math.normalize(edges[i].vector);
+                float shortestDistanceBtwLines = MathLib.ShortestDistanceBtwLines(edgeDirection, rayDirection, vertex1ToPoint);
 
-            if (shortestDistanceBtwLines <= radius) {
-                float3 nearestPointOnRay = NearestPointOnLine1ToLine2(point, rayDirection, edges[falseEdgeIndex].vertex1.position, edgeDirection);
-                float3 spherePosition = nearestPointOnRay - rayDirection * math.sqrt(radius*radius - shortestDistanceBtwLines*shortestDistanceBtwLines);
+                if (shortestDistanceBtwLines <= radius) {
+                    float3 nearestPointOnRay = MathLib.NearestPointOnLine1ToLine2(point, rayDirection, edges[i].vertex1.position, edgeDirection);
+                    float3 spherePosition = nearestPointOnRay - rayDirection * math.sqrt(radius*radius - shortestDistanceBtwLines*shortestDistanceBtwLines);
 
-                float radiusSqrd = radius*radius;
-                float3 sphereToVertex1 = edges[falseEdgeIndex].vertex1.position - spherePosition;
+                    float radiusSqrd = radius*radius;
+                    float3 sphereToVertex1 = edges[i].vertex1.position - spherePosition;
 
-                if (IsSphereRayIntersecting(spherePosition, radius, edges[falseEdgeIndex].vertex1.position, edges[falseEdgeIndex].direction, edges[falseEdgeIndex].length, out float3 rayToSphere)) {
-                    return spherePosition;
+                    if (MathLib.IsSphereRayIntersecting(spherePosition, radius, edges[i].vertex1.position, edges[i].direction, edges[i].length, out float3 rayToSphere)) {
+                        return spherePosition;
+                    }
+
+                    // float3 sphereToVertex2 = edges[falseEdgeIndex].vertex2.position - spherePosition;
+                    // if (!(math.dot(sphereToVertex1, sphereToVertex1) > radiusSqrd && math.dot(sphereToVertex2, sphereToVertex2) > radiusSqrd)) {
+                    //     return spherePosition;
+                    // }
                 }
-
-                // float3 sphereToVertex2 = edges[falseEdgeIndex].vertex2.position - spherePosition;
-                // if (!(math.dot(sphereToVertex1, sphereToVertex1) > radiusSqrd && math.dot(sphereToVertex2, sphereToVertex2) > radiusSqrd)) {
-                //     return spherePosition;
-                // }
+                return new float3(100,100,100); // false;
             }
-            return new float3(100,100,100); // false;
         }
-
         return point; // numFalse == 0; // return true;
-    }
-
-    bool IsSphereRayIntersecting(float3 point, float radius, float3 rayStart, float3 rayDirection, float rayLength, out float3 rayToSphere) {
-        float3 nearestPointOnRay = NearestPointOnRayToPoint(point, rayStart, rayDirection, rayLength);
-        rayToSphere = point - nearestPointOnRay; // * vec3Mask // Mask is to make it only 2D
-        float distanceToRaySqrd = math.dot(rayToSphere, rayToSphere);
-        if (distanceToRaySqrd <= radius*radius) {
-            return true;
-        }
-        return false;
-    }
-
-    float3 NearestPointOnRayToPoint(float3 point, float3 rayStart, float3 rayDirection, float rayLength) {
-        float3 rayStartToPoint = point - rayStart;
-        float distanceOnRay = math.clamp(math.dot(rayStartToPoint, rayDirection), 0, rayLength);
-        return rayStart + (rayDirection * distanceOnRay);
-    }
-
-    float3 NearestPointOnLine1ToLine2(float3 line1Point, float3 line1Direction, float3 line2Point, float3 line2Direction) // https://math.stackexchange.com/q/3436386
-    {
-        float3 posDiff = line1Point - line2Point;
-        float3 crossNormal = math.normalize(math.cross(line1Direction, line2Direction));
-        // float3 projection = math.project(pos_diff, a);
-        float3 rejection = posDiff - math.project(posDiff, line2Direction) - math.project(posDiff, crossNormal);
-        float3 distanceToLinePos = math.length(rejection) / math.dot(line1Direction, math.normalize(rejection));
-        return line1Point - line1Direction * distanceToLinePos;
     }
 
     // Raycasting not fully working with spheres, going off the corners and high angle not working
@@ -243,19 +209,19 @@ public struct Polygon // Clockwise. low-level
     public bool IsPointInConvex(float3 pointOnPlane, float3 rayDirection) { // TODO: Hasn't been tested with enough planes yet. pointOnPlane is assumed to actually be on plane
         for (int i = 0; i < numVertices; i++) {
             float3 pointToVertex1 = pointOnPlane - edges[i].vertex1.position;
-            
-            if (math.dot(edges[i].normal, pointToVertex1) > 0)
+            float distanceFromEdge = math.dot(edges[i].normal, pointToVertex1);
+            if (distanceFromEdge > 0) // Negative if behind the edge
                 return false;
         }
         return true;
     }
 }
 
-struct Vertex {
+public struct Vertex {
     public float3 position { get; set; }
 }
 
-struct Edge {
+public struct Edge {
     //private bool isCachedValid;
     public Vertex vertex1;
     public Vertex vertex2;
