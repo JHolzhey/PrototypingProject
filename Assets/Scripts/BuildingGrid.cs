@@ -98,47 +98,97 @@ public class BuildingGrid
             int X = startCoords.x + (I * signX) + boolX;
             int Y = (int)(slopeM * X + interceptB); // y = m * x + b (where b is initial z position)
             
-            for (int Y0 = currentY; Y0 != Y + signY; Y0 += signY) 
+            for (int Y0 = currentY; Y0 != Y + signY; Y0 += signY)
                 rasterCellCoords.Add(new int2(currentX - (1 - boolX), Y0));
 
             currentX = X;  currentY = Y;
         }
-        for (int Y0 = currentY; Y0 != endCoords.y + signY; Y0 += signY) // Y0 != endCoords.y + signY;
+        for (int Y0 = currentY; Y0 != endCoords.y + signY; Y0 += signY)
             rasterCellCoords.Add(new int2(currentX - (1 - boolX), Y0));
-        //return rasterCellCoords;
     }
 
-    public List<int2> RasterPolygon(Polygon polygon) // Separate function for radius > 0?
-    {
+    public List<int2> RasterRayOneX(float3 rayStart, float3 rayEnd, bool isReverse = false) { // Only for testing right now
         List<int2> rasterCellCoords = new List<int2>();
-
-        List<int2> bottomEdgeCellCoords = new List<int2>();
-        List<int2> topEdgeCellCoords = new List<int2>();
-        List<int2> currentEdgeCellCoords = new List<int2>();
-        int startingEdgeIndex = -1;
-        bool isCurrentedgeTop = polygon.GetEdge(0).vector.x > 0;
-        for (int i = 1; i < polygon.numVertices; i++) {
-            bool isTopEdge = polygon.GetEdge(i).vector.x > 0;
-            if (isTopEdge ^ isCurrentedgeTop) {
-                startingEdgeIndex = i;
-                currentEdgeCellCoords = isTopEdge ? topEdgeCellCoords : bottomEdgeCellCoords;
-            }
-        }
-        for (int i = startingEdgeIndex; i < polygon.numVertices + startingEdgeIndex; i++) { // 5 and 3
-            int index = i;
-            if (i >= polygon.numVertices) { // i == 5, numVertices == 5
-                index = i - polygon.numVertices;
-            }
-            Edge edge = polygon.GetEdge(index);
-            RasterRay(edge.vertex1.position, edge.vertex2.position, ref currentEdgeCellCoords); // Remember to remove last cellCoord
-
-            
-        }
-
-        
+        RasterRayOneX(rayStart, rayEnd, ref rasterCellCoords, isReverse);
         return rasterCellCoords;
     }
-    
+
+    public void RasterRayOneX(float3 rayStart, float3 rayEnd, ref List<int2> rasterCellCoords, bool isReverse = false)
+    {
+        float3 rayVector = rayEnd - rayStart;
+        float3 startRelativeToBottomLeftPos = (rayStart - bottomLeftWorld) / cellSize;
+
+        int2 startCoords = WorldToCellCoords(rayStart);
+        int2 endCoords = WorldToCellCoords(rayEnd);
+
+        int signY = (rayVector.z > 0) ? 1 : -1;
+        int signX = (rayVector.x > 0) ? 1 : -1;
+        float slopeM = rayVector.z / rayVector.x;
+        float interceptB = (-slopeM * startRelativeToBottomLeftPos.x) + startRelativeToBottomLeftPos.z;
+
+        int numXGridLinesBtw = math.abs(endCoords.x - startCoords.x);
+        int boolX = (signX > 0) ? 1 : 0; // For offsetting x axis values when ray is negative x
+
+        int currentX = startCoords.x + (1 - boolX);  int currentY = startCoords.y;
+        for (int I = 0; I < numXGridLinesBtw; I++) {
+            int X = startCoords.x + (I * signX) + boolX;
+            int Y = (int)(slopeM * X + interceptB); // y = m * x + b (where b is initial z position)
+
+            int YUsing = isReverse ? currentY : Y;
+            
+            rasterCellCoords.Add(new int2(currentX - (1 - boolX), YUsing));
+            currentX = X;  currentY = Y;
+        }
+        int YUsing2 = isReverse ? currentY : endCoords.y;
+        rasterCellCoords.Add(new int2(currentX - (1 - boolX), YUsing2));
+    }
+
+    public void RasterPolygon(Polygon polygon, out List<int2> bottomEdgeCellCoords, out List<int2> topEdgeCellCoords)
+    {
+        Debug.Log("polygon.numVertices: " + polygon.numVertices);
+        // List<int2> rasterCellCoords = new List<int2>();
+
+        bottomEdgeCellCoords = new List<int2>();
+        topEdgeCellCoords = new List<int2>();
+        List<int2> currentEdgeCellCoords = default;
+        int startingEdgeIndex = -1;
+        bool isCurrentEdgeTop = polygon.GetEdge(0).vector.x > 0;
+        for (int i = 1; i < polygon.numVertices; i++) { // Finds the first instance around the polygon that edges switch from top to bottom (end) or vice versa
+            bool isTopEdge = polygon.GetEdge(i).vector.x > 0;
+            if (isTopEdge ^ isCurrentEdgeTop) {
+                startingEdgeIndex = i;
+                isCurrentEdgeTop = isTopEdge;
+                currentEdgeCellCoords = isTopEdge ? topEdgeCellCoords : bottomEdgeCellCoords;
+                currentEdgeCellCoords.Add(new int2(-1, -1)); // to make the remove last index thing work
+                Debug.Log("startingEdgeIndex: " + startingEdgeIndex);
+                Debug.Log("isTopEdge: " + isTopEdge);
+                break;
+            }
+        }
+        int colorIndex = 0;
+        for (int i0 = startingEdgeIndex; i0 < polygon.numVertices + startingEdgeIndex; i0++) { // Now goes around polygon edges and adds to current Coords based on end
+            int index = i0;
+            if (i0 >= polygon.numVertices) {
+                index = i0 - polygon.numVertices;
+            }
+            Debug.Log("index: " + index);
+            Edge edge = polygon.GetEdge(index);
+            CommonLib.CreatePrimitive(PrimitiveType.Cube, edge.CalcMidpoint(), new float3(0.05f), CommonLib.CycleColors[colorIndex++]);
+
+            bool isTopEdge = edge.vector.x > 0;
+            if (isTopEdge ^ isCurrentEdgeTop) { // If detect a switch of ends based on edge direction, switch current Coords and don't remove last element
+                Debug.Log("Switching ends");
+                isCurrentEdgeTop = isTopEdge;
+                currentEdgeCellCoords = isTopEdge ? topEdgeCellCoords : bottomEdgeCellCoords; // Switch to correct end Coords
+            } else {
+                Debug.Log("Removing last");
+                currentEdgeCellCoords.RemoveAt(currentEdgeCellCoords.Count - 1); // Remove last element because next iteration will write to its spot instead
+            }
+            bool isZPositive = edge.vector.z > 0;
+            bool isReverseRay = (!isTopEdge && isZPositive) || (isTopEdge && !isZPositive);
+            RasterRayOneX(edge.vertex1.position, edge.vertex2.position, ref currentEdgeCellCoords, isReverseRay);
+        }
+    }
 
     public List<int2> RasterRayOld(float3 rayStart, float3 rayEnd, float radius = 0) // Separate function for radius > 0?
     {
@@ -177,19 +227,19 @@ public class BuildingGrid
         for (int X = startCoords.x; X < endCoords.x; X++) {
             int Y = (int)(slopeM * ((float)X - startRelativeToBottomLeftPos.x + 1) + startRelativeToBottomLeftPos.z); // y = m * x + b (where b is initial z position)
             if (Y != currentY) {
-                for (int Y0 = currentY + lineYSign; Y0 != Y + lineYSign; Y0 += lineYSign) {
-                    AddRadiusCells(new int2(X, Y0), rasterCellCoords, cellRadius, startCoords, usedCellGrid);
+                // for (int Y0 = currentY + lineYSign; Y0 != Y + lineYSign; Y0 += lineYSign) {
+                //      AddRadiusCells(new int2(X, Y), rasterCellCoords, cellRadius, startCoords, usedCellGrid); // Y0 instead Y
                     //if (Y0 == Y) { break; } // Instead of Y0 != Y + lineYSign
-                }
+                // }
                 currentY = Y;
             }
             AddRadiusCells(new int2(X+1, Y), rasterCellCoords, cellRadius, startCoords, usedCellGrid);
         }
         if (currentY != endCoords.y) {
-            for (int Y0 = currentY + lineYSign; Y0 != endCoords.y + lineYSign; Y0 += lineYSign) {
-                AddRadiusCells(new int2(endCoords.x, Y0), rasterCellCoords, cellRadius, startCoords, usedCellGrid);
+            // for (int Y0 = currentY + lineYSign; Y0 != endCoords.y + lineYSign; Y0 += lineYSign) {
+                AddRadiusCells(new int2(endCoords.x, endCoords.y), rasterCellCoords, cellRadius, startCoords, usedCellGrid); // Y0 instead endCoords.y
                 //if (Y0 == endCoords.y) { break; }
-            }
+            // }
         }
         return rasterCellCoords;
     }

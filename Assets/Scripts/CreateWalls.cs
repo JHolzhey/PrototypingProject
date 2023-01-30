@@ -49,20 +49,24 @@ public class CreateWalls : MonoBehaviour
             polygonVertexHandles[i].transform.localScale = new float3(0.2f);
         }
 
-        float3[] vertexPositions2 = new float3[] {new float3(1, 0.2f, -10), new float3(1.5f, 2, -12), new float3(-1.5f, 2, -12), new float3(-1, 0.2f, -10)};
-        testPolygon2 = new Polygon(vertexPositions);
-
         buildingGrid = new BuildingGrid();
         testPolygon.AddToGrid(buildingGrid);
-        print(testPolygon.colliderSections.Length);
+
+        float3[] vertexPositions2 = new float3[] {new float3(1.5f, 0.2f, -10.5f), new float3(6.5f, 0.6f, -14.5f), new float3(0.5f, 0.6f, -18.5f), new float3(-6.5f, 0.6f, -14.5f), new float3(-1.5f, 0.2f, -10.5f)};
+        for (int i = 0; i < vertexPositions2.Length; i++) {
+            CommonLib.CreatePrimitive(PrimitiveType.Sphere, vertexPositions2[i], new float3(0.2f), Color.white);
+        }
+        testPolygon2 = new Polygon(vertexPositions2);
         
         TestDrawPolygon(new GameObject("TestPolygon"), testPolygon);
         TestDrawPolygon(new GameObject("TestPolygon2"), testPolygon2);
 
-        List<int2> cellCoords = buildingGrid.RasterPolygon(testPolygon2);
-        print("Polygon Count: " + cellCoords.Count);
-        for (int i = 0; i < cellCoords.Count; i++) {
-            GameObject sphere = CommonLib.CreatePrimitive(PrimitiveType.Sphere, buildingGrid.CellCoordsToWorld(cellCoords[i]) + new float3(0,0.2f,0), new float3(0.2f), Color.yellow);
+        buildingGrid.RasterPolygon(testPolygon2, out List<int2> bottomEdgeCellCoords, out List<int2> topEdgeCellCoords);
+        print("bottomEdgeCellCoords: " + bottomEdgeCellCoords.Count + ", topEdgeCellCoords: " + topEdgeCellCoords.Count);
+        int numXCoords = bottomEdgeCellCoords.Count;
+        for (int i = 0; i < numXCoords; i++) {
+            GameObject sphere = CommonLib.CreatePrimitive(PrimitiveType.Sphere, buildingGrid.CellCoordsToWorld(bottomEdgeCellCoords[i]) + new float3(0,0.1f*i,0), new float3(0.2f), Color.green);
+            GameObject sphere2 = CommonLib.CreatePrimitive(PrimitiveType.Sphere, buildingGrid.CellCoordsToWorld(topEdgeCellCoords[(numXCoords - 1) - i]) + new float3(0,0.1f*i,0), new float3(0.2f), Color.red);
         }
         
 
@@ -265,18 +269,18 @@ public class CreateWalls : MonoBehaviour
             float3 lineEnd = GameObject.Find("RayEnd").transform.position;
             Gizmos.DrawLine(lineStart, lineEnd);
             
-            List<int2> cellCoords = buildingGrid.RasterRay(lineStart, lineEnd);
-            print("Count: " + cellCoords.Count);
+            List<int2> cellCoords = buildingGrid.RasterRayOneX(lineStart, lineEnd, true);
+            // print("Count: " + cellCoords.Count);
             for (int i = 0; i < cellCoords.Count; i++) {
                 Gizmos.color = Color.blue;
                 Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize, 0.2f, buildingGrid.cellSize));
             }
 
-            List<int2> cellCoords2 = buildingGrid.RasterRayOld(lineStart, lineEnd, 0);
-            print("Count2: " + cellCoords2.Count);
+            List<int2> cellCoords2 = buildingGrid.RasterRayOld(lineStart, lineEnd);
+            // print("Count2: " + cellCoords2.Count);
             for (int i = 0; i < cellCoords2.Count; i++) {
                 Gizmos.color = Color.red;
-                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords2[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize-0.1f, 0.2f, buildingGrid.cellSize-0.1f));
+                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords2[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize-0.5f, 0.2f, buildingGrid.cellSize-0.5f));
             }
         }
     }

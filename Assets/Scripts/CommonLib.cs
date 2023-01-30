@@ -33,4 +33,6 @@ public static class CommonLib
         }
         return primitive;
     }
+
+    public static Color[] CycleColors = { Color.blue, Color.cyan, Color.green, Color.yellow, Color.red };
 }

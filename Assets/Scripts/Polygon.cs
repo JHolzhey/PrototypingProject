@@ -91,13 +91,9 @@ public struct Polygon // Clockwise. low-level
         }
         if (normal.y < 0.1) {
             GetMaxExtents(out float3 minPosition, out float3 maxPosition);
-            Debug.Log("maxPosition: " + maxPosition);
-            Debug.Log("minPosition: " + minPosition);
-
             int Entity = 0;
             List<int2> cellCoords = grid.RasterRay(minPosition, maxPosition);
             colliderSections = new ColliderSection[cellCoords.Count];
-            Debug.Log("Vertical Polygon count: " + cellCoords.Count);
             for (int i = 0; i < cellCoords.Count; i++) {
                 CommonLib.CreatePrimitive(PrimitiveType.Cube, grid.CellCoordsToWorld(cellCoords[i]), new float3(1.5f, 0.1f, 1.5f), Color.blue);
                 colliderSections[i] = new ColliderSection(Entity, grid.AddEntityToCell(cellCoords[i], Entity), cellCoords[i]);
@@ -183,36 +179,11 @@ public struct Polygon // Clockwise. low-level
         return point; // numFalse == 0; // return true;
     }
 
-    // Raycasting not fully working with spheres, going off the corners and high angle not working
-    public bool IsPointInConvexOk(float3 pointOnPlane, float radius, float3 rayDirection) { // TODO: Hasn't been tested with enough planes yet. pointOnPlane is assumed to actually be on plane
-        float dotPlaneNormalRay = math.abs(1/math.dot(normal, math.normalize(rayDirection))); // 1 if looking directly at plane
-        int numFalse = 0;
-        for (int i = 0; i < numVertices; i++) {
-            float3 pointToVertex1 = pointOnPlane - edges[i].vertex1.position;
-            
-            float dotEdgeNormalRay = math.abs(math.dot(edges[i].normal, math.normalize(rayDirection)));
-
-            if (math.dot(edges[i].normal, pointToVertex1) > radius + radius * (dotPlaneNormalRay * dotEdgeNormalRay)) // Not working: + Thickness*math.abs(dotEdgeNormalRay))
-                numFalse++; // return false;
-        }
-        if (numFalse > 0) Debug.Log("Multiple sides showing false");
-        return numFalse == 0;
-        // return true;
-
-        /* float dotDirectionNormal = math.dot(-velocityDirection, terrainNormal);
-        float dotCoeff = 1/dotDirectionNormal;
-        float underTerrainY = terrainY - newPosition.y;
-        float totalYArrow = underTerrainY + radius * dotDirectionNormal;
-        float totalYSphere = underTerrainY + radius;
-        float distanceBackwards = totalYSphere * dotCoeff;
-        float3 sphereOnTerrainPosition = newPosition - velocityDirection * distanceBackwards; */
-    }
-
-    public bool IsPointInConvex(float3 pointOnPlane, float3 rayDirection) { // TODO: Hasn't been tested with enough planes yet. pointOnPlane is assumed to actually be on plane
+    public bool IsPointInConvex(float3 pointOnPlane, float3 rayDirection, float amountOutsideEdges = 0) { // TODO: Hasn't been tested with enough planes yet. pointOnPlane is assumed to actually be on plane
         for (int i = 0; i < numVertices; i++) {
             float3 pointToVertex1 = pointOnPlane - edges[i].vertex1.position;
             float distanceFromEdge = math.dot(edges[i].normal, pointToVertex1);
-            if (distanceFromEdge > 0) // Negative if behind the edge
+            if (distanceFromEdge > 0) // Negative if behind the edge // TODO: Use amountOutsideEdges here
                 return false;
         }
         return true;
@@ -244,6 +215,10 @@ public struct Edge {
 
     public void UpdateNormal(float3 planeNormal) {
         normal = math.normalize(math.cross(vector, planeNormal));
+    }
+
+    public float3 CalcMidpoint() {
+        return (vertex1.position + vertex2.position) / 2;
     }
 }
 
