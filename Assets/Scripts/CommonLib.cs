@@ -21,4 +21,16 @@ public static class CommonLib
         cube.transform.localScale = new float3(cube.transform.localScale.x, cube.transform.localScale.y, math.length(vector));
         return cube;
     }
+
+    public static GameObject CreatePrimitive(PrimitiveType primitiveType, float3 position, float3 localScale, Color color, Quaternion localRotation = new Quaternion(), float destroyTime = math.INFINITY) {
+        GameObject primitive = GameObject.CreatePrimitive(primitiveType);
+        primitive.transform.position = position;
+        primitive.transform.localScale = localScale;
+        primitive.transform.localRotation = localRotation;
+        primitive.GetComponent<Renderer>().material.color = color;
+        if (destroyTime != math.INFINITY) {
+            Object.Destroy(primitive, destroyTime);
+        }
+        return primitive;
+    }
 }

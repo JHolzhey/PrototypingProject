@@ -91,13 +91,15 @@ public struct Polygon // Clockwise. low-level
         }
         if (normal.y < 0.1) {
             GetMaxExtents(out float3 minPosition, out float3 maxPosition);
-            //Debug.Log("maxPosition: " + maxPosition);
-            //Debug.Log("minPosition: " + minPosition);
+            Debug.Log("maxPosition: " + maxPosition);
+            Debug.Log("minPosition: " + minPosition);
 
             int Entity = 0;
             List<int2> cellCoords = grid.RasterRay(minPosition, maxPosition);
             colliderSections = new ColliderSection[cellCoords.Count];
+            Debug.Log("Vertical Polygon count: " + cellCoords.Count);
             for (int i = 0; i < cellCoords.Count; i++) {
+                CommonLib.CreatePrimitive(PrimitiveType.Cube, grid.CellCoordsToWorld(cellCoords[i]), new float3(1.5f, 0.1f, 1.5f), Color.blue);
                 colliderSections[i] = new ColliderSection(Entity, grid.AddEntityToCell(cellCoords[i], Entity), cellCoords[i]);
             }
         } else {
@@ -126,7 +128,7 @@ public struct Polygon // Clockwise. low-level
     }
 
     public bool SphereCastConvex(Ray ray, float radius, out float3 hitPoint, float maxDistance = math.INFINITY) { // TODO: Gotta check if line and plane are parallel
-        float constants = math.dot(ray.origin, normal);
+        float constants = math.dot(ray.origin, normal); // Solve line plane intersection
         float coefficients = math.dot(ray.direction, normal);
         float distanceAlongRay = (planeDistance - constants) / coefficients;
 
@@ -163,10 +165,10 @@ public struct Polygon // Clockwise. low-level
                     float3 nearestPointOnRay = MathLib.NearestPointOnLine1ToLine2(point, rayDirection, edges[i].vertex1.position, edgeDirection);
                     float3 spherePosition = nearestPointOnRay - rayDirection * math.sqrt(radius*radius - shortestDistanceBtwLines*shortestDistanceBtwLines);
 
-                    float radiusSqrd = radius*radius;
-                    float3 sphereToVertex1 = edges[i].vertex1.position - spherePosition;
+                    // float radiusSqrd = radius*radius;
+                    // float3 sphereToVertex1 = edges[i].vertex1.position - spherePosition;
 
-                    if (MathLib.IsSphereRayIntersecting(spherePosition, radius, edges[i].vertex1.position, edges[i].direction, edges[i].length, out float3 rayToSphere)) {
+                    if (MathLib.IsSphereRayIntersecting(spherePosition, radius, edges[i].vertex1.position, edges[i].direction, edges[i].length, out float3 _)) {
                         return spherePosition;
                     }
 

@@ -79,8 +79,6 @@ public class BuildingGrid
 
     public void RasterRay(float3 rayStart, float3 rayEnd, ref List<int2> rasterCellCoords)
     {
-        //List<int2> rasterCellCoords = new List<int2>();
-
         float3 rayVector = rayEnd - rayStart;
         float3 startRelativeToBottomLeftPos = (rayStart - bottomLeftWorld) / cellSize;
 
@@ -105,7 +103,7 @@ public class BuildingGrid
 
             currentX = X;  currentY = Y;
         }
-        for (int Y0 = currentY; Y0 != endCoords.y; Y0 += signY) // Y0 != endCoords.y + signY;
+        for (int Y0 = currentY; Y0 != endCoords.y + signY; Y0 += signY) // Y0 != endCoords.y + signY;
             rasterCellCoords.Add(new int2(currentX - (1 - boolX), Y0));
         //return rasterCellCoords;
     }
@@ -132,7 +130,7 @@ public class BuildingGrid
                 index = i - polygon.numVertices;
             }
             Edge edge = polygon.GetEdge(index);
-            RasterRay(edge.vertex1.position, edge.vertex2.position, ref currentEdgeCellCoords);
+            RasterRay(edge.vertex1.position, edge.vertex2.position, ref currentEdgeCellCoords); // Remember to remove last cellCoord
 
             
         }

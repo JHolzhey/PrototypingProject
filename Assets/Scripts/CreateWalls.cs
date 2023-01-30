@@ -45,7 +45,7 @@ public class CreateWalls : MonoBehaviour
         polygonRenderer.widthMultiplier = 0.01f;
         polygonVertexHandles = new GameObject[10];
         for (int i = 0; i < 10; i++) {
-            polygonVertexHandles[i] =  GameObject.CreatePrimitive(PrimitiveType.Sphere);
+            polygonVertexHandles[i] = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             polygonVertexHandles[i].transform.localScale = new float3(0.2f);
         }
 
@@ -60,11 +60,9 @@ public class CreateWalls : MonoBehaviour
         TestDrawPolygon(new GameObject("TestPolygon2"), testPolygon2);
 
         List<int2> cellCoords = buildingGrid.RasterPolygon(testPolygon2);
-        print("Count: " + cellCoords.Count);
+        print("Polygon Count: " + cellCoords.Count);
         for (int i = 0; i < cellCoords.Count; i++) {
-            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            sphere.transform.position = buildingGrid.CellCoordsToWorld(cellCoords[i]) + new float3(0,0.2f,0);
-            sphere.transform.localScale = new float3(0.2f);
+            GameObject sphere = CommonLib.CreatePrimitive(PrimitiveType.Sphere, buildingGrid.CellCoordsToWorld(cellCoords[i]) + new float3(0,0.2f,0), new float3(0.2f), Color.yellow);
         }
         
 
@@ -138,7 +136,7 @@ public class CreateWalls : MonoBehaviour
 
     }
 
-    void TestUpdateProjectiles(float deltaTime)
+    void TestUpdateProjectiles(float deltaTime) // Contains simple sphere/arrow against terrain ray cast
     {
         for (int i = 0; i < numProjectiles; i++) {
             //Projectile projectile = projectiles[i]; // copy not by reference
@@ -211,31 +209,42 @@ public class CreateWalls : MonoBehaviour
             } else {
                 projectiles[i].isRolling = false;
             }
-            CommonLib.CubeBetween2Points(newPosition, newPosition + projectiles[i].velocity, projectilesPointers[i]); // model velocity
+            //CommonLib.CubeBetween2Points(newPosition, newPosition + projectiles[i].velocity, projectilesPointers[i]); // model velocity
         }
     }
 
     void TestRayCast(Ray ray)
     {
         for (int i = 0; i < selectedPolygon.numVertices; i++) {
-            polygonVertexHandles[i].transform.position = float3.zero;
+            polygonVertexHandles[i].transform.position = float3.zero; // Deselect polygon
         }
 
         //float rayRadius = 0.3f;
         if (testPolygon.RayCastConvex(ray, out float3 hitPoint, 10)) {
-            GameObject sphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            sphere.GetComponent<Renderer>().material.color = Color.white;
-            sphere.transform.position = hitPoint;
-            sphere.transform.localScale = new float3(0.05f);
-            Object.Destroy(sphere, 5.0f);
+            CommonLib.CreatePrimitive(PrimitiveType.Sphere, hitPoint, new float3(0.05f), Color.white, new Quaternion(), 5.0f);
 
             selectedPolygon = testPolygon;
             for (int i = 0; i < selectedPolygon.numVertices; i++) {
-                polygonVertexHandles[i].transform.position = selectedPolygon.GetVertexPosition(i);
+                polygonVertexHandles[i].transform.position = selectedPolygon.GetVertexPosition(i); // Select polygon
             }
-
         } else {
             selectedPolygon = new Polygon();
+        }
+
+        /* float3 cylinderCenter = GameObject.Find("Cylinder").transform.position;
+        float cylinderHeight = GameObject.Find("Cylinder").transform.localScale.y;
+        float cylinderRadius = GameObject.Find("Cylinder").transform.localScale.x/2; */
+
+        GameObject capsule = GameObject.Find("Capsule");
+        float capsuleRadius = capsule.GetComponent<Renderer>().bounds.size.x/2;
+        float capsuleHeight = capsule.GetComponent<Renderer>().bounds.size.y - capsuleRadius*2;
+        float3 capsuleSphere1 = capsule.transform.position - new Vector3(0, capsuleHeight/2, 0);
+        float3 capsuleSphere2 = capsule.transform.position + new Vector3(0, capsuleHeight/2, 0);
+
+        if (MathLib.IsRayAACapsuleIntersecting(ray.origin, ray.origin + ray.direction*10, capsuleSphere1, capsuleSphere2, capsuleHeight, capsuleRadius)) {
+            print("Woohoo capsule");
+        } else {
+            print("Missed capsule");
         }
     }
 
@@ -267,7 +276,7 @@ public class CreateWalls : MonoBehaviour
             print("Count2: " + cellCoords2.Count);
             for (int i = 0; i < cellCoords2.Count; i++) {
                 Gizmos.color = Color.red;
-                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize-0.1f, 0.2f, buildingGrid.cellSize-0.1f));
+                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords2[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize-0.1f, 0.2f, buildingGrid.cellSize-0.1f));
             }
         }
     }

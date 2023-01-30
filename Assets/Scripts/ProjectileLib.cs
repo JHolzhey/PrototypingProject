@@ -47,8 +47,9 @@ public static class ProjectileLib
         } else {
             flightTime = ((initialVerticalSpeed-(math.sqrt(math.pow(initialVerticalSpeed,2)+(2*-GlobalConstants.GRAVITY*((distanceVector.y))))))/GlobalConstants.GRAVITY);
         }
-        Debug.Log("flightTime: " + flightTime);
-        Debug.Log("flightTime2: " + (horizontalDistance / math.sqrt(initialVelocity.x*initialVelocity.x + initialVelocity.z*initialVelocity.z)));
+        float flightTime2 = (horizontalDistance / math.sqrt(initialVelocity.x*initialVelocity.x + initialVelocity.z*initialVelocity.z));
+        // Debug.Log("flightTime: " + flightTime);
+        // Debug.Log("flightTime2: " + flightTime2);
         // trajectory.flightTime = flightTime
         
         trajectory = new Trajectory(isInRange, startPoint, distanceVector, launchAngle, initialVelocity, horizontalRangeHalf, horizontalDistance);
