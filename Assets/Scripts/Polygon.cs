@@ -11,7 +11,7 @@ public struct Polygon // Clockwise. low-level
     public ColliderSection[] colliderSections;
     public int numVertices { get; private set; }
     public float3 normal { get; private set; }
-    public float planeDistance { get; private set; }
+    public float originDistance { get; private set; }
     public float thickness { get; private set; }
 
     // maxExtents
@@ -67,7 +67,7 @@ public struct Polygon // Clockwise. low-level
 
     public void UpdatePlaneEquation() { // ax + by + cz = d -> Normal = (a,b,c), Distance = d
         normal =  math.normalize(math.cross(edges[0].vector, edges[1].vector));
-        planeDistance = math.dot(normal, vertices[0].position);
+        originDistance = math.dot(normal, vertices[0].position);
     }
 
     public void UpdateEdgeNormals() {
@@ -110,23 +110,17 @@ public struct Polygon // Clockwise. low-level
         colliderSections = null;
     }
 
-    public bool RayCastConvex(Ray ray, out float3 hitPoint, float maxDistance = math.INFINITY) {
-        float constants = math.dot(ray.origin, normal);
-        float coefficients = math.dot(ray.direction, normal);
-        float distanceAlongRay = (planeDistance - constants) / coefficients;
-
-        float3 hitPointOnPlane = ray.origin + (distanceAlongRay * ray.direction); // ray.direction comes normalized
-        hitPoint = hitPointOnPlane;
-
-        if (distanceAlongRay < 0 || distanceAlongRay > maxDistance) return false;
-
-        return IsPointInConvex(hitPointOnPlane, ray.direction);
+    public bool RayCastConvex(float3 rayOrigin, float3 rayDirection, float rayLength, out float3 nearestPointToPlane) { // Old: float maxDistance = math.INFINITY
+        if (MathLib.IsRayPlaneIntersecting(rayOrigin, rayDirection, rayLength, normal, originDistance, out nearestPointToPlane)) {
+            return IsPointInConvex(nearestPointToPlane, rayDirection);
+        }
+        return false;
     }
 
     public bool SphereCastConvex(Ray ray, float radius, out float3 hitPoint, float maxDistance = math.INFINITY) { // TODO: Gotta check if line and plane are parallel
         float constants = math.dot(ray.origin, normal); // Solve line plane intersection
         float coefficients = math.dot(ray.direction, normal);
-        float distanceAlongRay = (planeDistance - constants) / coefficients;
+        float distanceAlongRay = (originDistance - constants) / coefficients;
 
         float3 hitPointOnPlane = ray.origin + (distanceAlongRay * ray.direction); // ray.direction comes normalized
 
@@ -164,7 +158,7 @@ public struct Polygon // Clockwise. low-level
                     // float radiusSqrd = radius*radius;
                     // float3 sphereToVertex1 = edges[i].vertex1.position - spherePosition;
 
-                    if (MathLib.IsSphereRayIntersecting(spherePosition, radius, edges[i].vertex1.position, edges[i].direction, edges[i].length, out float3 _)) {
+                    if (MathLib.IsRaySphereIntersecting(edges[i].vertex1.position, edges[i].direction, edges[i].length, spherePosition, radius, out float3 _)) {
                         return spherePosition;
                     }
 
@@ -200,7 +194,7 @@ public struct Edge {
     public Vertex vertex2;
     public float3 vector { get; private set; }
     public float3 normal { get; private set; }
-    public float3 direction { get; private set; }
+    readonly public float3 direction { get; }
     public float length { get; private set; }
 
     public Edge(Vertex vertex1, Vertex vertex2) {

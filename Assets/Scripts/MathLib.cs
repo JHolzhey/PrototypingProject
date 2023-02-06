@@ -18,7 +18,7 @@ public static class MathLib
         return false;
     }
 
-    public static bool IsSphereRayIntersecting(float3 sphereCenter, float sphereRadius, float3 rayStart, float3 rayDirection, float rayLength, out float3 nearestPointOnRay) {
+    public static bool IsRaySphereIntersecting(float3 rayStart, float3 rayDirection, float rayLength, float3 sphereCenter, float sphereRadius, out float3 nearestPointOnRay) {
         nearestPointOnRay = NearestPointOnRayToPoint(sphereCenter, rayStart, rayDirection, rayLength);
         return IsSpheresIntersecting(sphereCenter, sphereRadius, nearestPointOnRay);
     }
@@ -72,28 +72,46 @@ public static class MathLib
 
             // float3 nearestPointOnRay = NearestPointOnRayToLine(rayStart, rayDirection, rayLength, capsuleSphereBottom, capsuleVectorDirection);
             float3 nearestPointOnCapsuleRay = NearestPointOnRayToLine(capsuleSphereBottom, -capsuleVectorDirection, capsuleLength, rayStart, rayDirection);
-            CommonLib.CreatePrimitive(PrimitiveType.Sphere, nearestPointOnCapsuleRay, new float3(0.1f), Color.red, new Quaternion(), 5.0f);
             
-            bool isIntersecting = (IsSphereRayIntersecting(nearestPointOnCapsuleRay, capsuleRadius, rayStart, rayDirection, rayLength, out float3 thing));
-            CommonLib.CreatePrimitive(PrimitiveType.Sphere, thing, new float3(0.1f), Color.yellow, new Quaternion(), 5.0f);
+            bool isIntersecting = (IsRaySphereIntersecting(rayStart, rayDirection, rayLength, nearestPointOnCapsuleRay, capsuleRadius, out float3 thing));
+
+            /* CommonLib.CreatePrimitive(PrimitiveType.Sphere, nearestPointOnCapsuleRay, new float3(0.1f), Color.red, new Quaternion(), 5.0f);
+            CommonLib.CreatePrimitive(PrimitiveType.Sphere, thing, new float3(0.1f), Color.yellow, new Quaternion(), 5.0f); */
             return isIntersecting;
         }
         return false;
     }
 
     public static bool IsAABBsIntersecting(float3 minPosBox1, float3 maxPosBox1, float3 minPosBox2, float3 maxPosBox2) {
-        CommonLib.CreatePrimitive(PrimitiveType.Cube, minPosBox1, new float3(0.05f), Color.blue, new Quaternion(), 5.0f);
+        /* CommonLib.CreatePrimitive(PrimitiveType.Cube, minPosBox1, new float3(0.05f), Color.blue, new Quaternion(), 5.0f);
         CommonLib.CreatePrimitive(PrimitiveType.Cube, maxPosBox1, new float3(0.05f), Color.black, new Quaternion(), 5.0f);
 
         CommonLib.CreatePrimitive(PrimitiveType.Cube, minPosBox2, new float3(0.05f), Color.green, new Quaternion(), 5.0f);
-        CommonLib.CreatePrimitive(PrimitiveType.Cube, maxPosBox2, new float3(0.05f), Color.magenta, new Quaternion(), 5.0f);
+        CommonLib.CreatePrimitive(PrimitiveType.Cube, maxPosBox2, new float3(0.05f), Color.magenta, new Quaternion(), 5.0f); */
+
         return ((minPosBox1.y <= maxPosBox2.y && minPosBox2.y <= maxPosBox1.y)
             && (minPosBox1.x <= maxPosBox2.x && minPosBox2.x <= maxPosBox1.x)
             && (minPosBox1.z <= maxPosBox2.z && minPosBox2.z <= maxPosBox1.z));
     }
 
-    public static void RayToAABB(float3 rayStart, float3 rayEnd, out float3 minPosition, out float3 maxPosition) {
+    static void RayToAABB(float3 rayStart, float3 rayEnd, out float3 minPosition, out float3 maxPosition) {
         maxPosition = math.max(rayStart, rayEnd);
         minPosition = math.min(rayStart, rayEnd);
+    }
+
+    public static bool IsRayPlaneIntersecting(float3 rayOrigin, float3 rayDirection, float rayLength, float3 planeNormal, float planeOriginDistance, out float3 nearestPointToPlane) {
+        float constants = math.dot(rayOrigin, planeNormal);
+        float coefficients = math.dot(rayDirection, planeNormal);
+        float distanceAlongRay = (planeOriginDistance - constants) / coefficients;
+
+        bool isIntersecting = true;
+        if (distanceAlongRay < 0) { // This is essentially the clamp function written out for minor performance gain
+            distanceAlongRay = 0; isIntersecting = false;
+        } else if (distanceAlongRay > rayLength) {
+            distanceAlongRay = rayLength; isIntersecting = false;
+        }
+        nearestPointToPlane = rayOrigin + (rayDirection * distanceAlongRay);
+
+        return isIntersecting;
     }
 }

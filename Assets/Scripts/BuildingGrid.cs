@@ -143,12 +143,12 @@ public class BuildingGrid
         rasterCellCoords.Add(new int2(currentX - (1 - boolX), YUsing2));
     }
 
-    public void RasterPolygon(Polygon polygon, out List<int2> bottomEdgeCellCoords, out List<int2> topEdgeCellCoords)
+    public List<int2> RasterPolygon(Polygon polygon, out List<int2> bottomEdgeCellCoords, out List<int2> topEdgeCellCoords)
     {
         Debug.Log("polygon.numVertices: " + polygon.numVertices);
-        // List<int2> rasterCellCoords = new List<int2>();
+        List<int2> rasterCellCoords = new List<int2>(); // All cell coords of fully rasterized polygon (if a cell is barely clipped, it will still be included)
 
-        bottomEdgeCellCoords = new List<int2>();
+        bottomEdgeCellCoords = new List<int2>(); // All cell coords of only rasterized bottom edge of polygon, and only one cell coord per X
         topEdgeCellCoords = new List<int2>();
         List<int2> currentEdgeCellCoords = default;
         int startingEdgeIndex = -1;
@@ -159,14 +159,14 @@ public class BuildingGrid
                 startingEdgeIndex = i;
                 isCurrentEdgeTop = isTopEdge;
                 currentEdgeCellCoords = isTopEdge ? topEdgeCellCoords : bottomEdgeCellCoords;
-                currentEdgeCellCoords.Add(new int2(-1, -1)); // to make the remove last index thing work
+                currentEdgeCellCoords.Add(new int2(-1, -1)); // To make the RemoveAt last index below work for the first edge iteration below
                 Debug.Log("startingEdgeIndex: " + startingEdgeIndex);
                 Debug.Log("isTopEdge: " + isTopEdge);
                 break;
             }
         }
         int colorIndex = 0;
-        for (int i0 = startingEdgeIndex; i0 < polygon.numVertices + startingEdgeIndex; i0++) { // Now goes around polygon edges and adds to current Coords based on end
+        for (int i0 = startingEdgeIndex; i0 < polygon.numVertices + startingEdgeIndex; i0++) { // Now goes around polygon edges and adds to current end Coords
             int index = i0;
             if (i0 >= polygon.numVertices) {
                 index = i0 - polygon.numVertices;
@@ -178,16 +178,27 @@ public class BuildingGrid
             bool isTopEdge = edge.vector.x > 0;
             if (isTopEdge ^ isCurrentEdgeTop) { // If detect a switch of ends based on edge direction, switch current Coords and don't remove last element
                 Debug.Log("Switching ends");
-                isCurrentEdgeTop = isTopEdge;
+                isCurrentEdgeTop = isTopEdge; // Update our variable that tells us which end we are currently on
                 currentEdgeCellCoords = isTopEdge ? topEdgeCellCoords : bottomEdgeCellCoords; // Switch to correct end Coords
             } else {
                 Debug.Log("Removing last");
-                currentEdgeCellCoords.RemoveAt(currentEdgeCellCoords.Count - 1); // Remove last element because next iteration will write to its spot instead
+                currentEdgeCellCoords.RemoveAt(currentEdgeCellCoords.Count - 1); // Remove last element so no duplicates because next iteration will write its coords too
             }
             bool isZPositive = edge.vector.z > 0;
-            bool isReverseRay = (!isTopEdge && isZPositive) || (isTopEdge && !isZPositive);
-            RasterRayOneX(edge.vertex1.position, edge.vertex2.position, ref currentEdgeCellCoords, isReverseRay);
+            bool isReverseRay = (!isTopEdge && isZPositive) || (isTopEdge && !isZPositive); // Make RasterRayOneX work properly (enforce top is top raster and vice versa)
+            RasterRayOneX(edge.vertex1.position, edge.vertex2.position, ref currentEdgeCellCoords, isReverseRay); // Raster so only one cell coord per X cell (for each end)
         }
+
+        int numXCoords = bottomEdgeCellCoords.Count;
+        for (int i = 0; i < numXCoords; i++) { // Now iterate from bottomY to topY for each X and add (X, Y) to final raster coords
+            int X = bottomEdgeCellCoords[i].x;
+            int bottomY = bottomEdgeCellCoords[i].y;
+            int topY = topEdgeCellCoords[(numXCoords - 1) - i].y;
+            for (int Y = bottomY; Y <= topY; Y++) {
+                rasterCellCoords.Add(new int2(X, Y));
+            }
+        }
+        return rasterCellCoords;
     }
 
     public List<int2> RasterRayOld(float3 rayStart, float3 rayEnd, float radius = 0) // Separate function for radius > 0?

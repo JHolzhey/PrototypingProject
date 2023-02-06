@@ -13,6 +13,7 @@ public class CreateWalls : MonoBehaviour
     public Polygon testPolygon;
     public GameObject polygonObject;
     public Polygon testPolygon2;
+    public Polygon testPolygon3;
     LineRenderer polygonRenderer;
     GameObject[] polygonVertexHandles;
     BuildingGrid buildingGrid;
@@ -29,6 +30,8 @@ public class CreateWalls : MonoBehaviour
     public float friction = 0.05f;
 
     public BuildingScriptableObject buildingScriptableObject;
+
+    float3[] verticesTest;
 
     // Start is called before the first frame update
     void Start()
@@ -53,20 +56,28 @@ public class CreateWalls : MonoBehaviour
         testPolygon.AddToGrid(buildingGrid);
 
         float3[] vertexPositions2 = new float3[] {new float3(1.5f, 0.2f, -10.5f), new float3(6.5f, 0.6f, -14.5f), new float3(0.5f, 0.6f, -18.5f), new float3(-6.5f, 0.6f, -14.5f), new float3(-1.5f, 0.2f, -10.5f)};
-        for (int i = 0; i < vertexPositions2.Length; i++) {
-            CommonLib.CreatePrimitive(PrimitiveType.Sphere, vertexPositions2[i], new float3(0.2f), Color.white);
-        }
+        /* for (int i = 0; i < vertexPositions2.Length; i++) {
+            CommonLib.CreatePrimitive(PrimitiveType.Sphere, vertexPositions2[i], new float3(0.1f), Color.white);
+        } */
         testPolygon2 = new Polygon(vertexPositions2);
+
+        float3[] vertexPositions3 = new float3[] {new float3(1, 0.2f, 5), new float3(1.5f, 2, 5), new float3(-1.5f, 2, 5), new float3(-1, 0.2f, 5)};
+        testPolygon3 = new Polygon(vertexPositions3);
         
         TestDrawPolygon(new GameObject("TestPolygon"), testPolygon);
-        TestDrawPolygon(new GameObject("TestPolygon2"), testPolygon2);
+        TestDrawPolygon(new GameObject("TestPolygonSide2"), testPolygon, 0);
+        TestDrawPolygon(new GameObject("TestPolygon2"), testPolygon2, 0);
+        TestDrawPolygon(new GameObject("TestPolygon3"), testPolygon3);
 
-        buildingGrid.RasterPolygon(testPolygon2, out List<int2> bottomEdgeCellCoords, out List<int2> topEdgeCellCoords);
+        List<int2> rasterCellCoords = buildingGrid.RasterPolygon(testPolygon2, out List<int2> bottomEdgeCellCoords, out List<int2> topEdgeCellCoords);
         print("bottomEdgeCellCoords: " + bottomEdgeCellCoords.Count + ", topEdgeCellCoords: " + topEdgeCellCoords.Count);
         int numXCoords = bottomEdgeCellCoords.Count;
         for (int i = 0; i < numXCoords; i++) {
             GameObject sphere = CommonLib.CreatePrimitive(PrimitiveType.Sphere, buildingGrid.CellCoordsToWorld(bottomEdgeCellCoords[i]) + new float3(0,0.1f*i,0), new float3(0.2f), Color.green);
             GameObject sphere2 = CommonLib.CreatePrimitive(PrimitiveType.Sphere, buildingGrid.CellCoordsToWorld(topEdgeCellCoords[(numXCoords - 1) - i]) + new float3(0,0.1f*i,0), new float3(0.2f), Color.red);
+        }
+        for (int i = 0; i < rasterCellCoords.Count; i++) {
+            GameObject sphere = CommonLib.CreatePrimitive(PrimitiveType.Sphere, buildingGrid.CellCoordsToWorld(rasterCellCoords[i]), new float3(0.2f), Color.yellow);
         }
         
 
@@ -83,6 +94,17 @@ public class CreateWalls : MonoBehaviour
             projectiles[i] = new Projectile(maxRange, projectileRadius, mass, friction);
         }
         initialSpeed = math.sqrt(maxRange * GlobalConstants.GRAVITY);
+
+
+        int totalVertices = vertexPositions.Length + vertexPositions2.Length + vertexPositions3.Length;
+        verticesTest = new float3[totalVertices];
+        for (int i = 0; i < vertexPositions.Length; i++) verticesTest[i] = vertexPositions[i];
+        for (int i = 0; i < vertexPositions2.Length; i++) verticesTest[i + vertexPositions.Length] = vertexPositions2[i];
+        for (int i = 0; i < vertexPositions3.Length; i++) verticesTest[i + vertexPositions.Length + vertexPositions2.Length] = vertexPositions3[i];
+
+        for (int i = 0; i < totalVertices; i++) {
+            CommonLib.CreatePrimitive(PrimitiveType.Sphere, verticesTest[i], new float3(0.1f), Color.white);
+        }
     }
 
     // Update is called once per frame
@@ -97,7 +119,7 @@ public class CreateWalls : MonoBehaviour
                 // lineRenderer.SetPosition(0, transform.position - new Vector3(0, 0.01f, 0));
                 // lineRenderer.SetPosition(1, rayHitPosition);
 
-                /* TerrainData terrainData = Terrain.activeTerrain.terrainData; // Testing terrain normals
+                /* TerrainData terrainData = Terrain.activeTerrain.terrainData; // Testing terrain normals by placing vertical stick
                 float3 terrainBottomLeft = Terrain.activeTerrain.GetPosition();
                 float3 normalizedPositon = (rayHitPosition - terrainBottomLeft) / terrainData.size;
                 float3 terrainNormal = terrainData.GetInterpolatedNormal(normalizedPositon.x, normalizedPositon.z);
@@ -224,7 +246,7 @@ public class CreateWalls : MonoBehaviour
         }
 
         //float rayRadius = 0.3f;
-        if (testPolygon.RayCastConvex(ray, out float3 hitPoint, 10)) {
+        if (testPolygon.RayCastConvex(ray.origin, ray.direction, 10, out float3 hitPoint)) {
             CommonLib.CreatePrimitive(PrimitiveType.Sphere, hitPoint, new float3(0.05f), Color.white, new Quaternion(), 5.0f);
 
             selectedPolygon = testPolygon;
@@ -246,14 +268,14 @@ public class CreateWalls : MonoBehaviour
         float3 capsuleSphere2 = capsule.transform.position + new Vector3(0, capsuleHeight/2, 0);
 
         if (MathLib.IsRayAACapsuleIntersecting(ray.origin, ray.origin + ray.direction*10, capsuleSphere1, capsuleSphere2, capsuleHeight, capsuleRadius)) {
-            print("Woohoo capsule");
+            // print("Hit capsule");
         } else {
-            print("Missed capsule");
+            // print("Missed capsule");
         }
     }
 
-     void TestDrawPolygon(GameObject obj, Polygon polygon) {
-        QuadCreator quadCreator = new QuadCreator(obj, polygon);
+     void TestDrawPolygon(GameObject obj, Polygon polygon, int isFrontFace = 1) {
+        QuadCreator quadCreator = new QuadCreator(obj, polygon, isFrontFace);
      }
 
     void OnDrawGizmos() {
@@ -289,7 +311,7 @@ public class CreateWalls : MonoBehaviour
 
 public class QuadCreator
 {
-    public QuadCreator(GameObject gameObject, Polygon polygon)
+    public QuadCreator(GameObject gameObject, Polygon polygon, int isFrontFace = 1)
     {
         MeshRenderer meshRenderer = gameObject.AddComponent<MeshRenderer>();
         meshRenderer.sharedMaterial = new Material(Shader.Find("Standard"));
@@ -298,13 +320,13 @@ public class QuadCreator
 
         Mesh mesh = new Mesh();
 
-        mesh.vertices = polygon.GetFaceVertices();
+        mesh.vertices = polygon.GetFaceVertices(isFrontFace);
 
         // int[] vertexIndices = polygon.GetFrontIndicesFan();
         // for (int i = 0; i < vertexIndices.Length; i++) {
         //     Debug.Log(vertexIndices[i]);
         // }
-        mesh.triangles = polygon.GetFaceTriIndicesFan(0);
+        mesh.triangles = polygon.GetFaceTriIndicesFan(isFrontFace);
 
         Vector3[] normals = new Vector3[4]
         {
