@@ -425,7 +425,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: 238ad6ea99d845f498c3a2334f75358a, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -463,7 +463,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 585793106}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -2.31, y: 0.931, z: -8.49}
+  m_LocalPosition: {x: 1.32, y: 0.931, z: 2.73}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -722,7 +722,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1401738592}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -8, y: 0.146, z: -5.7299957}
+  m_LocalPosition: {x: -8.94, y: 0.146, z: -3.88}
   m_LocalScale: {x: 0.3, y: 0.3, z: 0.3}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -1206,6 +1206,7 @@ MonoBehaviour:
   projectileRadius: 0.5
   mass: 1
   friction: 0.2
+  startArrowsIndex: 5
   buildingScriptableObject: {fileID: 0}
 --- !u!120 &1687258588
 LineRenderer:
@@ -1359,7 +1360,7 @@ MonoBehaviour:
     x: 200
     y: 200
     z: 200
-  buildingCellSize: 2
+  buildingCellSize: 1
 --- !u!120 &1706432365
 LineRenderer:
   serializedVersion: 2
@@ -1560,7 +1561,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1747448959}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -3.1, y: 0.146, z: 0.2}
+  m_LocalPosition: {x: -2.05, y: 0.146, z: -7.31}
   m_LocalScale: {x: 0.3, y: 0.3, z: 0.3}
   m_ConstrainProportionsScale: 0
   m_Children: []

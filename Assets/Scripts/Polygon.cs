@@ -95,7 +95,7 @@ public struct Polygon // Clockwise. low-level
             List<int2> cellCoords = grid.RasterRay(minPosition, maxPosition);
             colliderSections = new ColliderSection[cellCoords.Count];
             for (int i = 0; i < cellCoords.Count; i++) {
-                CommonLib.CreatePrimitive(PrimitiveType.Cube, grid.CellCoordsToWorld(cellCoords[i]), new float3(1.5f, 0.1f, 1.5f), Color.blue);
+                CommonLib.CreatePrimitive(PrimitiveType.Cube, grid.CellCoordsToWorld(cellCoords[i]), new float3(grid.cellSize - 0.2f, 0.1f, grid.cellSize - 0.2f), Color.blue);
                 colliderSections[i] = new ColliderSection(Entity, grid.AddEntityToCell(cellCoords[i], Entity), cellCoords[i]);
             }
         } else {

@@ -18,15 +18,24 @@ public static class MathLib
         return false;
     }
 
-    public static bool IsRaySphereIntersecting(float3 rayStart, float3 rayDirection, float rayLength, float3 sphereCenter, float sphereRadius, out float3 nearestPointOnRay) {
-        nearestPointOnRay = NearestPointOnRayToPoint(sphereCenter, rayStart, rayDirection, rayLength);
+    public static bool IsRaySphereIntersecting(float3 rayStart, float3 rayDirection, float rayLength, float3 sphereCenter, float sphereRadius, out float distanceAlongRay) {
+        float3 nearestPointOnRay = NearestPointOnRayToPoint(sphereCenter, rayStart, rayDirection, rayLength, out distanceAlongRay);
         return IsSpheresIntersecting(sphereCenter, sphereRadius, nearestPointOnRay);
     }
 
-    public static float3 NearestPointOnRayToPoint(float3 point, float3 rayStart, float3 rayDirection, float rayLength) {
+    public static bool IsRaySphereIntersecting(float3 rayStart, float3 rayDirection, float rayLength, float3 sphereCenter, float sphereRadius, out float3 nearestPointOnRay) {
+        nearestPointOnRay = NearestPointOnRayToPoint(sphereCenter, rayStart, rayDirection, rayLength, out float distanceAlongRay);
+        return IsSpheresIntersecting(sphereCenter, sphereRadius, nearestPointOnRay);
+    }
+    // Untested:
+    public static bool IsPointCapsuleIntersecting(float3 point, float3 capsuleSphereBottom, float3 capsuleSphereTop, float capsuleLength, float capsuleRadius, out float3 nearestPointOnCapsuleRay) {
+        return IsRaySphereIntersecting(capsuleSphereBottom, math.normalize(capsuleSphereTop - capsuleSphereBottom), capsuleLength, point, capsuleRadius, out nearestPointOnCapsuleRay);
+    }
+
+    public static float3 NearestPointOnRayToPoint(float3 point, float3 rayStart, float3 rayDirection, float rayLength, out float distanceAlongRay) {
         float3 rayStartToPoint = point - rayStart;
-        float distanceOnRay = math.clamp(math.dot(rayStartToPoint, rayDirection), 0, rayLength);
-        return rayStart + (rayDirection * distanceOnRay);
+        distanceAlongRay = math.clamp(math.dot(rayStartToPoint, rayDirection), 0, rayLength);
+        return rayStart + (rayDirection * distanceAlongRay);
     }
 
     // https://math.stackexchange.com/q/3436386
@@ -56,13 +65,12 @@ public static class MathLib
         float3 crossNormal = math.normalize(math.cross(line1Direction, line2Direction));
         return math.dot(crossNormal, -arbitraryPoint1ToPoint2Vector);
     }
-
+    // Untested but this might work for any capsule orientation:
     public static bool IsRayAACapsuleIntersecting(float3 rayStart, float3 rayEnd, float3 capsuleSphereBottom, float3 capsuleSphereTop, float capsuleLength, float capsuleRadius) {
-        float3 toCapsuleMaxPos = new float3(capsuleRadius);
+        RayToAABB(rayStart, rayEnd, out float3 rayMinPosition, out float3 rayMaxPosition);
+        CapsuleToAABB(capsuleSphereBottom, capsuleSphereTop, capsuleRadius, out float3 capsuleMinPosition, out float3 capsuleMaxPosition);
 
-        RayToAABB(rayStart, rayEnd, out float3 minPosition, out float3 maxPosition);
-
-        if (IsAABBsIntersecting(minPosition, maxPosition, capsuleSphereBottom - toCapsuleMaxPos, capsuleSphereTop + toCapsuleMaxPos)) {
+        if (IsAABBsIntersecting(rayMinPosition, rayMaxPosition, capsuleMinPosition, capsuleMaxPosition)) {
             float3 rayVector = rayEnd - rayStart;
             float3 rayDirection = math.normalize(rayVector);
             float rayLength = math.length(rayVector);
@@ -73,7 +81,7 @@ public static class MathLib
             // float3 nearestPointOnRay = NearestPointOnRayToLine(rayStart, rayDirection, rayLength, capsuleSphereBottom, capsuleVectorDirection);
             float3 nearestPointOnCapsuleRay = NearestPointOnRayToLine(capsuleSphereBottom, -capsuleVectorDirection, capsuleLength, rayStart, rayDirection);
             
-            bool isIntersecting = (IsRaySphereIntersecting(rayStart, rayDirection, rayLength, nearestPointOnCapsuleRay, capsuleRadius, out float3 thing));
+            bool isIntersecting = (IsRaySphereIntersecting(rayStart, rayDirection, rayLength, nearestPointOnCapsuleRay, capsuleRadius, out float3 _));
 
             /* CommonLib.CreatePrimitive(PrimitiveType.Sphere, nearestPointOnCapsuleRay, new float3(0.1f), Color.red, new Quaternion(), 5.0f);
             CommonLib.CreatePrimitive(PrimitiveType.Sphere, thing, new float3(0.1f), Color.yellow, new Quaternion(), 5.0f); */
@@ -94,9 +102,18 @@ public static class MathLib
             && (minPosBox1.z <= maxPosBox2.z && minPosBox2.z <= maxPosBox1.z));
     }
 
+    static void CapsuleToAABB(float3 capsuleSphereBottom, float3 capsuleSphereTop, float capsuleRadius, out float3 minPosition, out float3 maxPosition) {
+        float3 minBtwSpheres = math.min(capsuleSphereBottom, capsuleSphereTop);
+        float3 maxBtwSpheres = math.max(capsuleSphereBottom, capsuleSphereTop);
+        
+        float3 toCapsuleMaxPos = new float3(capsuleRadius);
+        minPosition = minBtwSpheres - toCapsuleMaxPos;
+        maxPosition = maxBtwSpheres + toCapsuleMaxPos;
+    }
+
     static void RayToAABB(float3 rayStart, float3 rayEnd, out float3 minPosition, out float3 maxPosition) {
-        maxPosition = math.max(rayStart, rayEnd);
         minPosition = math.min(rayStart, rayEnd);
+        maxPosition = math.max(rayStart, rayEnd);
     }
 
     public static bool IsRayPlaneIntersecting(float3 rayOrigin, float3 rayDirection, float rayLength, float3 planeNormal, float planeOriginDistance, out float3 nearestPointToPlane) {

@@ -29,6 +29,10 @@ public class BuildingGrid
 
     void Update() {}
 
+    public int[] GetCellEntities(int2 cellCoords) { // TODO: Add clones for these functions that take float3's and do worldToCell
+        return this.grid[cellCoords.x, cellCoords.y].GetAllEntities();
+    }
+
     public int AddEntityToCell(int2 cellCoords, int entity) {
         int index = this.grid[cellCoords.x, cellCoords.y].AddEntity(entity);
         //printf("Adding entity [%d] to cell: [%d | %d] gives index: [%d]\n", (int)entity, cell_coords.x, cell_coords.y, index);
@@ -145,7 +149,7 @@ public class BuildingGrid
 
     public List<int2> RasterPolygon(Polygon polygon, out List<int2> bottomEdgeCellCoords, out List<int2> topEdgeCellCoords)
     {
-        Debug.Log("polygon.numVertices: " + polygon.numVertices);
+        // Debug.Log("polygon.numVertices: " + polygon.numVertices);
         List<int2> rasterCellCoords = new List<int2>(); // All cell coords of fully rasterized polygon (if a cell is barely clipped, it will still be included)
 
         bottomEdgeCellCoords = new List<int2>(); // All cell coords of only rasterized bottom edge of polygon, and only one cell coord per X
@@ -160,8 +164,8 @@ public class BuildingGrid
                 isCurrentEdgeTop = isTopEdge;
                 currentEdgeCellCoords = isTopEdge ? topEdgeCellCoords : bottomEdgeCellCoords;
                 currentEdgeCellCoords.Add(new int2(-1, -1)); // To make the RemoveAt last index below work for the first edge iteration below
-                Debug.Log("startingEdgeIndex: " + startingEdgeIndex);
-                Debug.Log("isTopEdge: " + isTopEdge);
+                // Debug.Log("startingEdgeIndex: " + startingEdgeIndex);
+                // Debug.Log("isTopEdge: " + isTopEdge);
                 break;
             }
         }
@@ -171,17 +175,17 @@ public class BuildingGrid
             if (i0 >= polygon.numVertices) {
                 index = i0 - polygon.numVertices;
             }
-            Debug.Log("index: " + index);
+            // Debug.Log("index: " + index);
             Edge edge = polygon.GetEdge(index);
             CommonLib.CreatePrimitive(PrimitiveType.Cube, edge.CalcMidpoint(), new float3(0.05f), CommonLib.CycleColors[colorIndex++]);
 
             bool isTopEdge = edge.vector.x > 0;
             if (isTopEdge ^ isCurrentEdgeTop) { // If detect a switch of ends based on edge direction, switch current Coords and don't remove last element
-                Debug.Log("Switching ends");
+                // Debug.Log("Switching ends");
                 isCurrentEdgeTop = isTopEdge; // Update our variable that tells us which end we are currently on
                 currentEdgeCellCoords = isTopEdge ? topEdgeCellCoords : bottomEdgeCellCoords; // Switch to correct end Coords
             } else {
-                Debug.Log("Removing last");
+                // Debug.Log("Removing last");
                 currentEdgeCellCoords.RemoveAt(currentEdgeCellCoords.Count - 1); // Remove last element so no duplicates because next iteration will write its coords too
             }
             bool isZPositive = edge.vector.z > 0;
@@ -296,6 +300,10 @@ struct Cell
 
     public int GetEntity(int entityIndex) {
         return entities[entityIndex];
+    }
+
+    public int[] GetAllEntities() {
+        return entities.SubArray(0, numEntities);
     }
 
 	public void RemoveEntity(int entityIndex) { // Moves entity at the end of entity list into removed index

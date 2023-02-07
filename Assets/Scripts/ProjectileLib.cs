@@ -62,9 +62,10 @@ public struct Projectile {
     public float3 velocity { get; set; } // Should be private set for these 2
     public float3 position { get; set; }
     public float pitchAngle { get; private set; }
-    float timeAlive;
+    public float timeAlive;
     float horizontalDistanceTraveled { get; set; }
     public bool isRolling;
+    public bool hasBounced;
 
     // public float maxRange;
     // float initialSpeed;
@@ -89,19 +90,85 @@ public struct Projectile {
         timeAlive = 0;
         horizontalDistanceTraveled = 0;
         isRolling = false;
+        hasBounced = false;
         return true;
     }
 
-    public void Step(float deltaTime) { // update velocity and position
-        timeAlive += deltaTime; // 1 float add
-        horizontalDistanceTraveled += trajectory.horizontalSpeed * deltaTime; // 1 float add, 1 float mult
+    public void Update(float deltaTime) { // Update timeAlive before or after?
+        timeAlive += deltaTime;
+        float3 oldPosition = position;
+        if (!hasBounced) {
+            horizontalDistanceTraveled += trajectory.horizontalSpeed * deltaTime;
+            position = trajectory.GetPositionAtTime(timeAlive, horizontalDistanceTraveled);
+            velocity = position - oldPosition;
+            // UpdatePitchAngle();
+        } else {
+            Step(deltaTime);
+        }
 
-        velocity += math.down() * (GlobalConstants.GRAVITY * deltaTime); // 1 float3 add, 1 float3-float mult
-        position += velocity * deltaTime; // 1 float3 add, 1 float3-float mult
-    } // 2 float add, 1 float mult, 2 float3 add, 2 float3-float mult
+        float terrainY = Terrain.activeTerrain.SampleHeight(position);
+        float3 terrainNormal = Terrain.activeTerrain.SampleNormal(position);
 
-    public void StepStabilized(float deltaTime) { // update pitchAngle
-        Step(deltaTime);
+        float3 pointOnTerrainPlane = new float3(position.x, terrainY, position.z);
+        float3 pointOnPlaneToProjectile = position - pointOnTerrainPlane;
+        // if (position.y - radius <= terrainY) { // basic quick method, better method below
+        float penetration = -(math.dot(pointOnPlaneToProjectile, terrainNormal) - radius); // positive if penetrating
+        if (penetration > 0)
+        {
+            if (!isRolling) { // Projectile has hit the ground for the first time
+                float3 hitVelocity = (position - oldPosition) / deltaTime;
+                float3 velocityDirection = math.normalize(hitVelocity);
+
+                if (radius != 0) { // Is a sphere
+                    float3 fixPenetrationVector = (penetration) * terrainNormal;
+                    position += fixPenetrationVector;
+
+                    // float3 reflectDirection = math.reflect(velocityDirection, terrainNormal);
+                    float restitution = 0.5f;
+                    //float normalForce = mass * GlobalConstants.GRAVITY * math.dot(math.up(), terrainNormal);
+                    float3 perpendicularVelocity = math.project(hitVelocity, terrainNormal);
+                    float3 parallelVelocity = hitVelocity - perpendicularVelocity;
+                    float3 result = (parallelVelocity) - (restitution * perpendicularVelocity);
+                    
+                    // float3 reflectedVelocity = MathLib.Reflect(hitVelocity, terrainNormal, 0.4f);
+                    
+                    velocity = result; // alternative: reflectedVelocity
+                    isRolling = true;
+                    hasBounced = true; // will start euler stepping after landing
+
+                } else { // Is an arrow, spear, or axe
+                    float dotDirectionNormal = math.dot(-velocityDirection, terrainNormal);
+                    float dotCoeff = 1/dotDirectionNormal;
+                    float distanceBackwards = penetration * dotCoeff;
+                    
+                    Debug.Log("distanceBackwards: " + distanceBackwards);
+                    position -= velocityDirection * distanceBackwards;
+
+                    timeAlive = -1;
+                }
+
+            } else { // Projectile sphere is rolling
+                float3 fixPenetrationVector = (penetration-0.01f) * terrainNormal; // Pushes into the ground so next iteration will still be in ground and rolling
+                position += fixPenetrationVector;
+
+                float3 perpendicularVelocity = terrainNormal * math.dot(velocity, terrainNormal);
+                float3 parallelVelocity = velocity - perpendicularVelocity;
+
+                float normalForce = mass * GlobalConstants.GRAVITY * math.dot(math.up(), terrainNormal);
+
+                velocity -= (perpendicularVelocity + (parallelVelocity * (deltaTime * normalForce * friction)));
+            }
+        } else {
+            isRolling = false;
+        }
+    }
+
+    public void Step(float deltaTime) { // update velocity and position using Euler integration
+        velocity += math.down() * (GlobalConstants.GRAVITY * deltaTime);
+        position += velocity * deltaTime;
+    }
+
+    public void UpdatePitchAngle() {
         pitchAngle = (1 - (horizontalDistanceTraveled * trajectory.inverseHorizontalRangeHalf)) * trajectory.launchAngle;
         //projectilePart.Orientation = Vector3.new(math.deg(arrowAngle), orientationY, orientationZ)
     }
@@ -111,6 +178,7 @@ public struct Trajectory { // holds trajectory information and can do projectile
     public bool isInRange { get; private set; }
     public float launchAngle { get; private set; }
     public float3 distanceVector { get; private set; }
+    public float3 horizontalDirection { get; private set; }
     // public float initialSpeed { get; private set; }
     // public float3 initialVelocity { get; private set; }
     // public float horizontalRangeHalf { get; private set; }
@@ -126,6 +194,7 @@ public struct Trajectory { // holds trajectory information and can do projectile
         this.isInRange = isInRange;
         this.launchAngle = launchAngle;
         this.distanceVector = distanceVector;
+        horizontalDirection = math.normalize(new float3(distanceVector.x, 0, distanceVector.z));
         // this.horizontalRangeHalf = horizontalRangeHalf;
         this.startPoint = startPoint;
         this.initialVelocity = initialVelocity;
@@ -140,12 +209,14 @@ public struct Trajectory { // holds trajectory information and can do projectile
     }
 
     public float3 GetPositionAtTime(float time) {
-        float horizontalDistanceTraveled = horizontalSpeed * time; // 1 float mult
-        float y = (initialVerticalSpeed * time) - (GlobalConstants.GRAVITY * time * time) / 2; // 3 float mult, 1 float add
-        float3 horizontalDirection = math.normalize(new float3(distanceVector.x, 0, distanceVector.z)); // Maybe make this a variable to avoid this calculation
+        return GetPositionAtTime(time, horizontalSpeed * time);
+    }
 
-        return startPoint + (horizontalDistanceTraveled * horizontalDirection + new float3(0, y, 0)); // 1 float3-float mult, 2 float3 add
-    } // 1 float add, 4 float mult, 2 float3 add, 1 float3-float mult
+    public float3 GetPositionAtTime(float time, float horizontalDistanceTraveled) {
+        float y = (initialVerticalSpeed * time) - (GlobalConstants.GRAVITY * time * time) / 2;
+
+        return startPoint + (horizontalDistanceTraveled * horizontalDirection + new float3(0, y, 0));
+    }
 
     public float3[] GetPositionsOnArc(int divisions) {
         float3[] positions = new float3[divisions+1];
