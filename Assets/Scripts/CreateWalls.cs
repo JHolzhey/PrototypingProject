@@ -109,6 +109,9 @@ public class CreateWalls : MonoBehaviour
             verticesTestSpheres[i] = CommonLib.CreatePrimitive(PrimitiveType.Sphere, verticesTest[i], new float3(0.1f), Color.white);
             buildingGrid.AddEntityToCell(buildingGrid.WorldToCellCoords(verticesTest[i]), i);
         }
+
+
+        Terrain.activeTerrain.CalcTerrainLayerIndices();
     }
 
     // Update is called once per frame
@@ -124,11 +127,13 @@ public class CreateWalls : MonoBehaviour
             float sphereCastRadius = 0.1f;
             CommonLib.ObjectBetween2Points(ray.origin, ray.origin + ray.direction*20, CommonLib.CreatePrimitive(PrimitiveType.Cylinder, float3.zero, new float3(sphereCastRadius*2), Color.grey));
             
-            if (Physics.Raycast(ray, out RaycastHit hit)) {
+            TerrainCollider terrainCollider = Terrain.activeTerrain.GetComponent<TerrainCollider>();
+            if (terrainCollider.Raycast(ray, out RaycastHit hit, 40)) {
                 float3 rayHitPosition = hit.point;
                 // lineRenderer.SetPosition(0, transform.position - new Vector3(0, 0.01f, 0));
                 // lineRenderer.SetPosition(1, rayHitPosition);
-
+                Materials.Type materialHit = Terrain.activeTerrain.SampleMaterial(rayHitPosition);
+                Debug.Log(materialHit.name);
                 
                 for (int i = 0; i < testPolygon.numVertices; i++) {
                     polygonRenderer.SetPosition(i, testPolygon.GetVertexPosition(i));// - testPolygon.Normal * testPolygon.Thickness/2);

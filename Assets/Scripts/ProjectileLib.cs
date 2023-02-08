@@ -55,6 +55,12 @@ public static class ProjectileLib
         trajectory = new Trajectory(isInRange, startPoint, distanceVector, launchAngle, initialVelocity, horizontalRangeHalf, horizontalDistance);
         return true;
     }
+
+    // public static float CalcFlightTime() {
+    // }
+
+    // public static float CalcLeadTargetPosition() {
+    // }
 }
 
 public struct Projectile {
@@ -141,7 +147,6 @@ public struct Projectile {
                     float dotCoeff = 1/dotDirectionNormal;
                     float distanceBackwards = penetration * dotCoeff;
                     
-                    Debug.Log("distanceBackwards: " + distanceBackwards);
                     position -= velocityDirection * distanceBackwards;
 
                     timeAlive = -1;
