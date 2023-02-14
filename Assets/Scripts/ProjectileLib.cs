@@ -6,10 +6,11 @@ using UnityEngine.Assertions;
 
 public static class ProjectileLib
 {
+    public static float g = GlobalConstants.GRAVITY;
     public static float ComputeLaunchAngle(float horizontalDistance, float distanceY, float intialSpeed, out bool isInRange) { // Helper method for function below
-        float distanceTimesG = GlobalConstants.GRAVITY * horizontalDistance; // Micro-optimizations
+        float distanceTimesG = g * horizontalDistance; // Micro-optimizations
         float initialSpeedSqr = intialSpeed*intialSpeed;
-        float inRoot = math.pow(initialSpeedSqr, 2) - (GlobalConstants.GRAVITY * ((distanceTimesG * horizontalDistance) + (2*distanceY * initialSpeedSqr)));
+        float inRoot = math.pow(initialSpeedSqr, 2) - (g * ((distanceTimesG * horizontalDistance) + (2*distanceY * initialSpeedSqr)));
         if (inRoot <= 0) { // Out of range
             isInRange = false; return 0.25f * math.PI;
         }
@@ -38,14 +39,14 @@ public static class ProjectileLib
         float3 initialDirection = (horizontalDirection * math.cos(launchAngle)) + new float3(0, math.sin(launchAngle), 0);
         float3 initialVelocity = initialDirection * initialSpeed;
         
-        float horizontalRangeHalf = ((initialSpeed*initialSpeed)/GlobalConstants.GRAVITY * (math.sin(2*launchAngle))) / 2;
+        float horizontalRangeHalf = ((initialSpeed*initialSpeed)/g * (math.sin(2*launchAngle))) / 2;
         
         float initialVerticalSpeed = initialDirection.y * initialSpeed; // TODO: initialVelocity.y
         float flightTime;
         if (horizontalRangeHalf <= horizontalDistance) {
-            flightTime = ((initialVerticalSpeed+(math.sqrt(math.pow(initialVerticalSpeed,2)+(2*-GlobalConstants.GRAVITY*((distanceVector.y))))))/GlobalConstants.GRAVITY);
+            flightTime = ((initialVerticalSpeed+(math.sqrt(math.pow(initialVerticalSpeed,2)+(2*-g*((distanceVector.y))))))/g);
         } else {
-            flightTime = ((initialVerticalSpeed-(math.sqrt(math.pow(initialVerticalSpeed,2)+(2*-GlobalConstants.GRAVITY*((distanceVector.y))))))/GlobalConstants.GRAVITY);
+            flightTime = ((initialVerticalSpeed-(math.sqrt(math.pow(initialVerticalSpeed,2)+(2*-g*((distanceVector.y))))))/g);
         }
         float flightTime2 = (horizontalDistance / math.sqrt(initialVelocity.x*initialVelocity.x + initialVelocity.z*initialVelocity.z));
         // Debug.Log("flightTime: " + flightTime);
@@ -56,17 +57,61 @@ public static class ProjectileLib
         return true;
     }
 
-    // public static float CalcFlightTime() {
-    // }
+    public static float CalcHorizontalFlightTime(float horizontalDistance, float initialSpeed) {
+        float launchAngle = math.asin( horizontalDistance * g / MathLib.Square(initialSpeed) ) / 2;
+        return 2 * initialSpeed * math.sin(launchAngle) / g;
+    }
 
-    // public static float CalcLeadTargetPosition() {
-    // }
+    public static float3 CalcLeadTargetPosition(float3 startPoint, float3 targetPoint, float initialSpeed, float3 targetVelocity) {
+        float3 distanceVector = targetPoint - startPoint;
+        float timeToTarget = CalcHorizontalFlightTime(math.length(distanceVector), initialSpeed);
+
+        float3 approxLeadPosition = targetPoint + targetVelocity * timeToTarget;
+        return approxLeadPosition;
+    }
+
+    public static float2 CalcAimSpread(float3 startPoint, float3 targetPoint, float3 normal, float initialSpeed, float launchAngle, float horizontalAngleSpread, float verticalAngleSpread) {
+        float3 distanceVector = targetPoint - startPoint;
+        float distance = math.length(distanceVector);
+
+        float3 horizontalDistanceVector = new float3(distanceVector.x, 0, distanceVector.z);
+        float horizontalDistance = math.length(horizontalDistanceVector);
+
+        float horizontalSpreadRadius = distance * math.tan(horizontalAngleSpread / 2); // TanOA
+
+        float rangeShortFromVerticalSpread = MathLib.Square(initialSpeed) * math.sin(2*launchAngle) / g;
+        // Debug.Log("verticalSpreadShort: " + rangeShortFromVerticalSpread);
+        Debug.Log("horizontalSpreadRadius: " + horizontalSpreadRadius);
+
+
+        float shortVerticalAngle = launchAngle - verticalAngleSpread;
+        float shortY = CalcYFromX(horizontalDistance, shortVerticalAngle, initialSpeed);
+        float shortToTargetY = targetPoint.y - shortY;
+        float shortFinalPitchAngle = CalcPitchAngleFromX(horizontalDistance, launchAngle, initialSpeed, CalcHorizontalRange(launchAngle, initialSpeed));
+
+        float rotatedSpreadInPitchAngle = math.cos(shortFinalPitchAngle) * shortToTargetY;
+
+        return new float2(horizontalSpreadRadius*2, (distance - rangeShortFromVerticalSpread)*2);
+    }
+
+    public static float CalcHorizontalRange(float launchAngle, float initialSpeed) {
+        return ((initialSpeed*initialSpeed)/g * (math.sin(2*launchAngle)));
+    }
+
+    public static float CalcPitchAngleFromX(float X, float launchAngle, float initialSpeed, float horizontalRange) {
+        return (1 - (X * (1/(horizontalRange / 2)))) * launchAngle;
+    }
+
+    public static float CalcYFromX(float X, float launchAngle, float initialSpeed) {
+        return math.tan(launchAngle)*X - g / (2 * MathLib.Square(initialSpeed) * MathLib.Square(math.cos(launchAngle))) * MathLib.Square(X);
+    }
 }
 
 public struct Projectile {
     public Trajectory trajectory;
     public float3 velocity { get; set; } // Should be private set for these 2
     public float3 position { get; set; }
+    float3 prevPosition;
     public float pitchAngle { get; private set; }
     public float timeAlive;
     float horizontalDistanceTraveled { get; set; }
@@ -76,7 +121,7 @@ public struct Projectile {
     // public float maxRange;
     // float initialSpeed;
     float radius; // 0 for arrows, spears, and axes
-    float mass;
+    float mass; // in kg
     float friction;
 
     public Projectile(float maxRange, float radius, float mass, float friction) : this() {
@@ -102,30 +147,39 @@ public struct Projectile {
 
     public void Update(float deltaTime) { // Update timeAlive before or after?
         timeAlive += deltaTime;
-        float3 oldPosition = position;
+        prevPosition = position;
         if (!hasBounced) {
             horizontalDistanceTraveled += trajectory.horizontalSpeed * deltaTime;
             position = trajectory.GetPositionAtTime(timeAlive, horizontalDistanceTraveled);
-            velocity = position - oldPosition;
+            velocity = position - prevPosition;
             // UpdatePitchAngle();
         } else {
             Step(deltaTime);
         }
+        CheckTerrainCollision(deltaTime);
+    }
 
+    void CheckTerrainCollision(float deltaTime) {
+        // New function for projectile terrain collision:
         float terrainY = Terrain.activeTerrain.SampleHeight(position);
         float3 terrainNormal = Terrain.activeTerrain.SampleNormal(position);
-
         float3 pointOnTerrainPlane = new float3(position.x, terrainY, position.z);
-        float3 pointOnPlaneToProjectile = position - pointOnTerrainPlane;
+        
         // if (position.y - radius <= terrainY) { // basic quick method, better method below
-        float penetration = -(math.dot(pointOnPlaneToProjectile, terrainNormal) - radius); // positive if penetrating
-        if (penetration > 0)
+        if (MathLib.IsSpherePlaneIntersecting(position, radius, terrainNormal, pointOnTerrainPlane, out float penetration))
         {
-            if (!isRolling) { // Projectile has hit the ground for the first time
-                float3 hitVelocity = (position - oldPosition) / deltaTime;
+            if (!isRolling) { // Projectile has hit the ground for the first time because it has not been rolling
+                float3 hitVelocity = (position - prevPosition) / deltaTime; // Manually calculate velocity because haven't been using Euler til now
+
+                float constant = 0.000192f; // A = pi * 0.01^2, Cd = 1, rho = 1.225
+                float initialSpeed = math.length(trajectory.initialVelocity);
+                float dragDeceleration = MathLib.Square(initialSpeed) * constant / mass;
+                float hitSpeed = initialSpeed - dragDeceleration * timeAlive;
+                
+                // can possibly use velocity since its being set in Update()
                 float3 velocityDirection = math.normalize(hitVelocity);
 
-                if (radius != 0) { // Is a sphere
+                if (radius != 0) { // Is spherical
                     float3 fixPenetrationVector = (penetration) * terrainNormal;
                     position += fixPenetrationVector;
 
@@ -143,13 +197,19 @@ public struct Projectile {
                     hasBounced = true; // will start euler stepping after landing
 
                 } else { // Is an arrow, spear, or axe
-                    float dotDirectionNormal = math.dot(-velocityDirection, terrainNormal);
-                    float dotCoeff = 1/dotDirectionNormal;
-                    float distanceBackwards = penetration * dotCoeff;
-                    
-                    position -= velocityDirection * distanceBackwards;
+                    // Debug.Log("initialSpeed: " + initialSpeed + "    hitSpeed: " + hitSpeed);
 
-                    timeAlive = -1;
+                    Materials.Type material = Terrain.activeTerrain.SampleMaterial(position);
+                    float density = material.density;
+                    float materialDynamicPressure = 0.5f * density * MathLib.Square(initialSpeed);
+                    float materialForce = materialDynamicPressure * (math.PI * MathLib.Square(radius + 0.01f));
+                    
+                    float materialPenetration = MathLib.Square(initialSpeed) / (2 * (materialForce/mass));
+                    Debug.Log("materialPenetration: " + materialPenetration + "    radius: " + radius);
+
+                    position = MathLib.ResolvePointPlanePenetration(position, velocityDirection, terrainNormal, penetration);
+
+                    timeAlive = -1; // It is dead
                 }
 
             } else { // Projectile sphere is rolling

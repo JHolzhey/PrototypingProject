@@ -1202,9 +1202,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   polygonObject: {fileID: 1706432358}
+  polygonMaterial: {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
   maxRange: 40
   projectileRadius: 0.5
-  mass: 1
+  mass: 0.0162
   friction: 0.2
   startArrowsIndex: 5
   buildingScriptableObject: {fileID: 0}

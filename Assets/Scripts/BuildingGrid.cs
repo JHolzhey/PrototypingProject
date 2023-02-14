@@ -33,13 +33,19 @@ public class BuildingGrid
         return this.grid[cellCoords.x, cellCoords.y].GetAllEntities();
     }
 
+    public int AddEntityToCell(float3 position, int entity) {
+        int2 cellCoords = WorldToCellCoords(position);
+        return AddEntityToCell(cellCoords, entity);
+    }
+
     public int AddEntityToCell(int2 cellCoords, int entity) {
         int index = this.grid[cellCoords.x, cellCoords.y].AddEntity(entity);
         //printf("Adding entity [%d] to cell: [%d | %d] gives index: [%d]\n", (int)entity, cell_coords.x, cell_coords.y, index);
         return index;
     }
     public void RemoveEntityFromCell(int2 cellCoords, int entityIndex, int entity) {
-        this.grid[cellCoords.x, cellCoords.y].RemoveEntity(entityIndex);
+        int entityToBeRemoved = this.grid[cellCoords.x, cellCoords.y].RemoveEntity(entityIndex);
+        Debug.Assert(entity == entityToBeRemoved);
     }
 
     public void ClearAllCells() {
@@ -306,11 +312,11 @@ struct Cell
         return entities.SubArray(0, numEntities);
     }
 
-	public void RemoveEntity(int entityIndex) { // Moves entity at the end of entity list into removed index
+	public int RemoveEntity(int entityIndex) { // Moves entity at the end of entity list into removed index
         Assert.IsTrue((entityIndex >= 0) && (entityIndex < entities.Length) && (this.numEntities - 1 >= 0));
         //printf("Entity given: %d. At index: %d.    entity removed: %d.   entity at end: %d\n", e, entity_index, this->entities[entity_index], this->entities[this->num_entities - 1]);
         //printf("Num_entities before removing: %d. Array before removing:\n", this->num_entities);
-
+        int entityToBeRemoved = this.entities[entityIndex];
         int entityAtEnd = this.entities[this.numEntities - 1];
         this.entities[entityIndex] = entityAtEnd;
         //Motion& motion = registry.motions.get(entity_at_end);
@@ -318,6 +324,7 @@ struct Cell
 
         this.numEntities--;
         //printf("Num_entities after removing: %d\n", this->num_entities);
+        return entityToBeRemoved;
     }
 	public int AddEntity(int entity) { // Returns newly placed entity's index
         Assert.IsTrue((this.numEntities >= 0) && (this.numEntities < entities.Length)); // "Error or need to add more space to entity list"

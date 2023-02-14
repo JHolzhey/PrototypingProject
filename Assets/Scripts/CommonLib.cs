@@ -65,7 +65,7 @@ public static class TerrainExtensions
     public static int[] layerToMaterialIndices;
     public static int numTerrainLayers;
 
-    public static void CalcTerrainLayerIndices(this Terrain terrain) {
+    public static void InitLayerToMaterialIndices(this Terrain terrain) {
         numTerrainLayers = terrain.terrainData.GetAlphamaps(0, 0, 1, 1).Length;
         layerToMaterialIndices = new int[numTerrainLayers];
         for (int i = 0; i < numTerrainLayers; i++) {

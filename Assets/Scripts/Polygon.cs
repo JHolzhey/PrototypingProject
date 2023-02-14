@@ -35,6 +35,23 @@ public struct Polygon // Clockwise. low-level
         UpdateEdgeNormals();
     }
 
+    float2 PointToLocal(float3 point, float4x4 matrix) {
+        float3 arbitraryVertex = GetVertexPosition(0);
+        
+        float4 localPos
+        return new float2(distanceX, distanceY);
+    }
+
+    public float2[] GetVertexUVPositions(int index) {
+        float2[] vertexUVPositions = new float2[numVertices];
+        
+        for (int i = 0; i < numVertices; i++) {
+
+            // vertices[i].position = vertexPositions[i];
+        }
+        return vertexUVPositions;
+    }
+
     public Vector3[] GetFaceVertices(int isFrontFace = 1) {
         Vector3[] faceVertices = new Vector3[numVertices];
         for (int i = 0; i < numVertices; i++) {
@@ -75,7 +92,7 @@ public struct Polygon // Clockwise. low-level
             edges[i].UpdateNormal(normal);
     }
 
-    public void GetMaxExtents(out float3 minPosition, out float3 maxPosition) {
+    public void GetAABB(out float3 minPosition, out float3 maxPosition) {
         maxPosition = new float3(float.MinValue);
         minPosition = new float3(float.MaxValue);
         for (int i = 0; i < numVertices; i++) {
@@ -85,36 +102,53 @@ public struct Polygon // Clockwise. low-level
         }
     }
 
-    public void AddToGrid(BuildingGrid grid) {
-        if (colliderSections != null) {
-            RemoveFromGrid(grid);
+    public void AddToGrid(BuildingGrid grid, int entityIndexHack) {
+        if (colliderSections != null) { // If it exists in the grid first remove it. TODO: Maybe do error instead
+            RemoveFromGrid(grid, entityIndexHack);
         }
-        if (normal.y < 0.1) {
-            GetMaxExtents(out float3 minPosition, out float3 maxPosition);
-            int Entity = 0;
-            List<int2> cellCoords = grid.RasterRay(minPosition, maxPosition);
-            colliderSections = new ColliderSection[cellCoords.Count];
-            for (int i = 0; i < cellCoords.Count; i++) {
-                CommonLib.CreatePrimitive(PrimitiveType.Cube, grid.CellCoordsToWorld(cellCoords[i]), new float3(grid.cellSize - 0.2f, 0.1f, grid.cellSize - 0.2f), Color.blue);
-                colliderSections[i] = new ColliderSection(Entity, grid.AddEntityToCell(cellCoords[i], Entity), cellCoords[i]);
-            }
+        int Entity = entityIndexHack;
+        List<int2> rasterCellCoords;
+        if (normal.y < 0.1) { // Polygon is basically vertical so we don't have to raster it as a polygon
+            GetAABB(out float3 minPosition, out float3 maxPosition);
+            rasterCellCoords = grid.RasterRay(minPosition, maxPosition);
+            colliderSections = new ColliderSection[rasterCellCoords.Count];
         } else {
-            // raster polygon
+            rasterCellCoords = grid.RasterPolygon(this, out List<int2> bottomEdgeCellCoords, out List<int2> topEdgeCellCoords);
+            colliderSections = new ColliderSection[rasterCellCoords.Count];
+            int numXCoords = bottomEdgeCellCoords.Count;
+            for (int i = 0; i < numXCoords; i++) { // Only for debug
+                CommonLib.CreatePrimitive(PrimitiveType.Sphere, grid.CellCoordsToWorld(bottomEdgeCellCoords[i]) + new float3(0,0.1f*i,0), new float3(0.2f), Color.green);
+                CommonLib.CreatePrimitive(PrimitiveType.Sphere, grid.CellCoordsToWorld(topEdgeCellCoords[(numXCoords - 1) - i]) + new float3(0,0.1f*i,0), new float3(0.2f), Color.red);
+            }
+        }
+        for (int i = 0; i < rasterCellCoords.Count; i++) {
+            CommonLib.CreatePrimitive(PrimitiveType.Cube, grid.CellCoordsToWorld(rasterCellCoords[i]), new float3(grid.cellSize - 0.2f, 0.1f, grid.cellSize - 0.2f), Color.blue);
+            colliderSections[i] = new ColliderSection(Entity, grid.AddEntityToCell(rasterCellCoords[i], Entity), rasterCellCoords[i]);
         }
     }
 
-    public void RemoveFromGrid(BuildingGrid grid) {
+    public void RemoveFromGrid(BuildingGrid grid, int entityIndexHack) {
         for (int i = 0; i < colliderSections.Length; i++) {
             grid.RemoveEntityFromCell(colliderSections[i].cellCoords, colliderSections[i].cellIndex, 0);
         }
         colliderSections = null;
     }
 
-    public bool RayCastConvex(float3 rayOrigin, float3 rayDirection, float rayLength, out float3 nearestPointToPlane) { // Old: float maxDistance = math.INFINITY
-        if (MathLib.IsRayPlaneIntersecting(rayOrigin, rayDirection, rayLength, normal, originDistance, out nearestPointToPlane)) {
+    public bool RayCastConvex(float3 rayOrigin, float3 rayDirection, float rayLength, out float distanceAlongRay, out float3 nearestPointToPlane) { // Old: float maxDistance = math.INFINITY
+        if (MathLib.IsRayPlaneIntersecting(rayOrigin, rayDirection, rayLength, normal, originDistance, out distanceAlongRay, out nearestPointToPlane)) {
             return IsPointInConvex(nearestPointToPlane, rayDirection);
         }
         return false;
+    }
+
+    public bool IsPointInConvex(float3 pointOnPlane, float3 rayDirection, float amountOutsideEdges = 0) { // TODO: Hasn't been tested with enough planes yet. pointOnPlane is assumed to actually be on plane
+        for (int i = 0; i < numVertices; i++) {
+            float3 pointToVertex1 = pointOnPlane - edges[i].vertex1.position;
+            float distanceFromEdge = math.dot(edges[i].normal, pointToVertex1);
+            if (distanceFromEdge > 0) // Negative if behind the edge // TODO: Use amountOutsideEdges here
+                return false;
+        }
+        return true;
     }
 
     public bool SphereCastConvex(Ray ray, float radius, out float3 hitPoint, float maxDistance = math.INFINITY) { // TODO: Gotta check if line and plane are parallel
@@ -123,12 +157,8 @@ public struct Polygon // Clockwise. low-level
         float distanceAlongRay = (originDistance - constants) / coefficients;
 
         float3 hitPointOnPlane = ray.origin + (distanceAlongRay * ray.direction); // ray.direction comes normalized
-
-        float dotDirectionNormal = math.dot(-ray.direction, normal); // TODO: Move this stuff down
-        float dotCoeff = 1/dotDirectionNormal;
         float penetration = radius;
-        float distanceBackwards = penetration * dotCoeff;
-        float3 sphereTouchingPlane = hitPointOnPlane - (float3)ray.direction * distanceBackwards;
+        float3 sphereTouchingPlane = MathLib.ResolvePointPlanePenetration(hitPointOnPlane, ray.direction, normal, penetration);
 
         hitPoint = sphereTouchingPlane; // hitPointOnPlane;
 
@@ -171,16 +201,6 @@ public struct Polygon // Clockwise. low-level
             }
         }
         return point; // numFalse == 0; // return true;
-    }
-
-    public bool IsPointInConvex(float3 pointOnPlane, float3 rayDirection, float amountOutsideEdges = 0) { // TODO: Hasn't been tested with enough planes yet. pointOnPlane is assumed to actually be on plane
-        for (int i = 0; i < numVertices; i++) {
-            float3 pointToVertex1 = pointOnPlane - edges[i].vertex1.position;
-            float distanceFromEdge = math.dot(edges[i].normal, pointToVertex1);
-            if (distanceFromEdge > 0) // Negative if behind the edge // TODO: Use amountOutsideEdges here
-                return false;
-        }
-        return true;
     }
 }
 
