@@ -145,7 +145,7 @@ public struct Projectile {
         return true;
     }
 
-    public void Update(float deltaTime) { // Update timeAlive before or after?
+    public void Update(float deltaTime, BuildingGrid grid) { // Update timeAlive before or after?
         timeAlive += deltaTime;
         prevPosition = position;
         if (!hasBounced) {
@@ -156,7 +156,15 @@ public struct Projectile {
         } else {
             Step(deltaTime);
         }
+        RayCast(grid);
         CheckTerrainCollision(deltaTime);
+    }
+
+    void RayCast(BuildingGrid grid) {
+        int entityHit = grid.RayCast(entities, prevPosition, position);
+        if (entityHit >= 0) {
+            
+        }
     }
 
     void CheckTerrainCollision(float deltaTime) {

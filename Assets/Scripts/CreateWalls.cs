@@ -10,7 +10,7 @@ public class CreateWalls : MonoBehaviour
     int frameNum = 0;
     Camera cam;
     LineRenderer lineRenderer;
-    public Polygon testPolygon;
+    public Polygon testPolygon1;
     public GameObject polygonObject;
     public Polygon testPolygon2;
     public Polygon testPolygon3;
@@ -47,7 +47,7 @@ public class CreateWalls : MonoBehaviour
         lineRenderer.widthMultiplier = 0.02f;
 
         float3[] vertexPositions1 = new float3[] {new float3(0.5f, 0.2f, 0.5f), new float3(1.5f, 2, 0.5f), new float3(-1.5f, 2, 0.5f), new float3(-0.5f, 0.2f, 0.5f)};
-        testPolygon = new Polygon(vertexPositions1);
+        testPolygon1 = new Polygon(vertexPositions1);
         polygonRenderer = polygonObject.GetComponent<LineRenderer>();
         polygonRenderer.positionCount = (vertexPositions1.Length + 1) * 2;
         polygonRenderer.widthMultiplier = 0.01f;
@@ -99,9 +99,10 @@ public class CreateWalls : MonoBehaviour
             GameObject vertexSphere = CommonLib.CreatePrimitive(PrimitiveType.Sphere, verticesTest[i], new float3(0.1f), Color.white);
             entities[i] = new TestEntity(EntityType.Vertex, vertexSphere, verticesTest[i], new Polygon());
         }
-        entities[totalVertices] = new TestEntity(EntityType.Polygon, TestDrawPolygon(testPolygon), float3.zero, testPolygon);
+        entities[totalVertices] = new TestEntity(EntityType.Polygon, TestDrawPolygon(testPolygon1), float3.zero, testPolygon1);
         entities[totalVertices + 1] = new TestEntity(EntityType.Polygon, TestDrawPolygon(testPolygon2), float3.zero, testPolygon2);
         entities[totalVertices + 2] = new TestEntity(EntityType.Polygon, TestDrawPolygon(testPolygon3), float3.zero, testPolygon3);
+        float2[] uvPosition = testPolygon1.GetVertexUVPositions();
 
         for (int entityIndex = 0; entityIndex < entities.Length; entityIndex++) {
             if (entities[entityIndex].type == EntityType.Polygon) {
@@ -134,10 +135,10 @@ public class CreateWalls : MonoBehaviour
                 Materials.Type materialHit = Terrain.activeTerrain.SampleMaterial(rayHitPosition);
                 Debug.Log(materialHit.name);
                 
-                for (int i = 0; i < testPolygon.numVertices; i++) {
-                    polygonRenderer.SetPosition(i, testPolygon.GetVertexPosition(i));// - testPolygon.Normal * testPolygon.Thickness/2);
+                for (int i = 0; i < testPolygon1.numVertices; i++) {
+                    polygonRenderer.SetPosition(i, testPolygon1.GetVertexPosition(i));// - testPolygon.Normal * testPolygon.Thickness/2);
                 }
-                polygonRenderer.SetPosition(testPolygon.numVertices, testPolygon.GetVertexPosition(0));// - testPolygon.Normal * testPolygon.Thickness/2);
+                polygonRenderer.SetPosition(testPolygon1.numVertices, testPolygon1.GetVertexPosition(0));// - testPolygon.Normal * testPolygon.Thickness/2);
 
                 // for (int i = testPolygon.NumVertices; i < testPolygon.NumVertices*2; i++) { // double sided polygon
                 //     polygonRenderer.SetPosition(i, testPolygon.GetVertexPosition(i - testPolygon.NumVertices) + testPolygon.Normal * testPolygon.Thickness/2);
@@ -195,10 +196,10 @@ public class CreateWalls : MonoBehaviour
         }
 
         //float rayRadius = 0.3f;
-        if (testPolygon.RayCastConvex(ray.origin, ray.direction, rayLength, out float _, out float3 hitPoint)) {
+        if (testPolygon1.RayCastConvex(ray.origin, ray.direction, rayLength, out float _, out float3 hitPoint)) {
             CommonLib.CreatePrimitive(PrimitiveType.Sphere, hitPoint, new float3(0.05f), Color.white, new Quaternion(), 5.0f);
 
-            selectedPolygon = testPolygon;
+            selectedPolygon = testPolygon1;
             for (int i = 0; i < selectedPolygon.numVertices; i++) {
                 polygonVertexHandles[i].transform.position = selectedPolygon.GetVertexPosition(i); // Select polygon
             }
@@ -344,39 +345,41 @@ public class QuadCreator
         Mesh mesh = meshFilter.mesh;
 
         Vector3[] existingVertices = mesh.vertices;
+        Debug.Log("existingVertices: " + existingVertices.Length);
         Vector3[] addVertices = polygon.GetFaceVertices(isFrontFace);
 
-        Vector3[] vertices = existingVertices.Combine(addVertices);
+        Vector3[] vertices = existingVertices.Concat(addVertices);
+        Debug.Log("totaledVertices: " + vertices.Length);
 
         // int[] vertexIndices = polygon.GetFrontIndicesFan();
         // for (int i = 0; i < vertexIndices.Length; i++) {
         //     Debug.Log(vertexIndices[i]);
         // }
         int[] existingTriIndices = mesh.triangles;
+        Debug.Log("existingTriIndices: " + existingTriIndices.Length);
         int[] addTriIndices = polygon.GetFaceTriIndicesFan(isFrontFace);
         
-        int[] triIndices = existingTriIndices.Combine(addTriIndices);
+        int[] triIndices = existingTriIndices.Concat(addTriIndices);
         for (int i = existingTriIndices.Length; i < existingTriIndices.Length + addTriIndices.Length; i++) {
             triIndices[i] = triIndices[i] + existingVertices.Length;
         }
+        Debug.Log("triIndices: " + triIndices.Length);
 
-        Vector3[] normals = new Vector3[4]
-        {
-            -Vector3.forward,
-            -Vector3.forward,
-            -Vector3.forward,
-            -Vector3.forward
-        };
+        Vector3[] normals = new Vector3[vertices.Length].Populate(-polygon.normal * (isFrontFace*2 - 1));
+
+        float2[] uvs = polygon.GetVertexUVPositions(); // new float2[5] 
+        // {
+        //     new float2(0, 0),
+        //     new float2(1, 0),
+        //     new float2(0, 1),
+        //     new float2(1, 1),
+        //     new float2(0.5f, 0.5f)
+        // };
+
+        mesh.vertices = vertices;
+        mesh.triangles = triIndices;
         mesh.normals = normals;
-
-        Vector2[] uv = new Vector2[4]
-        {
-            new Vector2(0, 0),
-            new Vector2(1, 0),
-            new Vector2(0, 1),
-            new Vector2(1, 1)
-        };
-        mesh.uv = uv;
+        mesh.uv = uvs.ConvertToVector2Array(); // .SubArray(0, vertices.Length)
 
         meshFilter.mesh = mesh;
     }

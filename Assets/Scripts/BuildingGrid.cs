@@ -291,6 +291,35 @@ public class BuildingGrid
             }
         }
     }
+
+    public int RayCast(TestEntity[] entities, float3 rayStart, float3 rayEnd) {
+        List<int2> cellCoords = RasterRay(rayStart, rayEnd);
+        for (int i = 0; i < cellCoords.Count; i++) {
+            int[] cellEntities = GetCellEntities(cellCoords[i]);
+            int closestHitIndex = -1;  float closestHitAlongRay = math.INFINITY;
+
+            for (int j = 0; j < cellEntities.Length; j++) { // Must go through all entities in cell and choose hit that has smallest distanceAlongRay
+                int entityIndex = cellEntities[j];
+
+                float distanceAlongRay;
+                bool isHit;
+                if (entities[entityIndex].type == EntityType.Polygon) {
+                    isHit = entities[entityIndex].polygon.RayCastConvex(ray.origin, ray.direction, rayLength, out distanceAlongRay, out float3 nearestPointToPlane);
+                } else {
+                    float3 sphereCenter = entities[entityIndex].vertexPosition;
+                    isHit = MathLib.IsRaySphereIntersecting(ray.origin, ray.direction, rayLength, sphereCenter, sphereRadius, out distanceAlongRay);
+                }
+
+                if (isHit && distanceAlongRay < closestHitAlongRay) {
+                    closestHitIndex = entityIndex;  closestHitAlongRay = distanceAlongRay;
+                }
+            }
+            if (closestHitIndex != -1) { // Means we hit something
+                return closestHitIndex; // No need to check next cells since this must be the closest hit
+            }
+        }
+        return -1;
+    }
 }
 
 struct Cell

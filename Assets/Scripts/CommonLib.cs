@@ -15,7 +15,7 @@ public static class CommonLib
         float3 vectorUnit = math.normalize(vector);
         float3 rightVector = math.cross(vectorUnit, math.up());
         float3 upVector = math.cross(rightVector, vectorUnit);
-        Quaternion rotation = Quaternion.LookRotation(upVector, vectorUnit);
+        quaternion rotation = quaternion.LookRotation(upVector, vectorUnit);
         
         obj.transform.rotation = rotation;
         obj.transform.position = point1 + (vector/2);
@@ -24,7 +24,7 @@ public static class CommonLib
         return obj;
     }
 
-    public static GameObject CreatePrimitive(PrimitiveType primitiveType, float3 position, float3 localScale, Color color, Quaternion localRotation = new Quaternion(), float destroyTime = math.INFINITY) {
+    public static GameObject CreatePrimitive(PrimitiveType primitiveType, float3 position, float3 localScale, Color color, quaternion localRotation = new quaternion(), float destroyTime = math.INFINITY) {
         GameObject primitive = GameObject.CreatePrimitive(primitiveType);
         primitive.transform.position = position;
         primitive.transform.localScale = localScale;
@@ -44,20 +44,38 @@ public static class CommonLib
         obj.transform.localScale = localScale;
     }
 
-    public static T[] SubArray<T>(this T[] data, int startIndex, int length) { // Shallow copy
+    public static Color[] CycleColors = { Color.blue, Color.cyan, Color.green, Color.yellow, Color.red };
+}
+
+public static class ArrayExtensions
+{
+    public static T[] SubArray<T>(this T[] array, int startIndex, int length) { // Shallow copy
         T[] result = new T[length];
-        System.Array.Copy(data, startIndex, result, 0, length); // keep System. since using System causes GameObject conflict
+        System.Array.Copy(array, startIndex, result, 0, length); // keep System. since using System causes GameObject conflict
         return result;
     }
 
-    public static T[] Combine<T>(this T[] frontData, T[] backData) { // Shallow copy
+    public static T[] Concat<T>(this T[] frontData, T[] backData) { // Shallow copy
         T[] combined = new T[frontData.Length + backData.Length];
         System.Array.Copy(frontData, combined, frontData.Length);
         System.Array.Copy(backData, 0, combined, frontData.Length, backData.Length);
         return combined;
     }
 
-    public static Color[] CycleColors = { Color.blue, Color.cyan, Color.green, Color.yellow, Color.red };
+    public static T[] Populate<T>(this T[] array, T value) {
+        for ( int i = 0; i < array.Length;i++ ) {
+            array[i] = value;
+        }
+        return array;
+    }
+
+    public static Vector2[] ConvertToVector2Array(this float2[] data) {
+        Vector2[] castData = new Vector2[data.Length];
+        for (int i = 0; i < data.Length; i++) {
+            castData[i] = data[i];
+        }
+        return castData;
+    }
 }
 
 public static class TerrainExtensions

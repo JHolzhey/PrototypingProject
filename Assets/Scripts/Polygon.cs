@@ -35,20 +35,45 @@ public struct Polygon // Clockwise. low-level
         UpdateEdgeNormals();
     }
 
-    float2 PointToLocal(float3 point, float4x4 matrix) {
-        float3 arbitraryVertex = GetVertexPosition(0);
-        
-        float4 localPos
-        return new float2(distanceX, distanceY);
+    public static float3 PointToLocal(float3 point, float4x4 invMatrix) {
+        float4 localPos = math.mul(invMatrix, new float4(point, 1));
+        return new float3(localPos.xyz);
     }
 
-    public float2[] GetVertexUVPositions(int index) {
+    public static quaternion GetRotationFromNormal(float3 normal) {
+        // generate a tangent to the window normal
+        float3 tangent = math.cross(normal, math.up());
+        if (math.lengthsq(tangent) <= float.Epsilon) {
+            tangent = math.cross(normal,math.forward());
+        }
+        // tangent = math.normalize(tangent);
+        float3 bitangent = math.cross(tangent, normal); // upVector for a wall
+
+        return quaternion.LookRotation(normal, bitangent);
+    } 
+
+    public float2[] GetVertexUVPositions() {
         float2[] vertexUVPositions = new float2[numVertices];
         
-        for (int i = 0; i < numVertices; i++) {
+        float3 arbitraryVertexPos = GetVertexPosition(0);
+        quaternion rotation = GetRotationFromNormal(normal);
 
-            // vertices[i].position = vertexPositions[i];
+        Debug.Log("rotation: " + rotation);
+
+        float4x4 polygonMatrix = new float4x4(rotation, arbitraryVertexPos);
+        float4x4 invPolygonMatrix = math.inverse(polygonMatrix);
+
+        float2 maxUV = new float2(float.MinValue);
+        float2 minUV = new float2(float.MaxValue);
+        for (int i = 0; i < numVertices; i++) {
+            float3 vertexPosInLocal = PointToLocal(GetVertexPosition(i), invPolygonMatrix);
+            // Debug.Log("vertexPosInLocal: " + vertexPosInLocal);
+            vertexUVPositions[i] = vertexPosInLocal.xy/2;
+
+            maxUV = math.max(maxUV, vertexUVPositions[i]);
+            minUV = math.min(minUV, vertexUVPositions[i]);
         }
+        // vertexUVPositions.Select
         return vertexUVPositions;
     }
 
