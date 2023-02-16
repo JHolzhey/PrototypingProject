@@ -35,28 +35,11 @@ public struct Polygon // Clockwise. low-level
         UpdateEdgeNormals();
     }
 
-    public static float3 PointToLocal(float3 point, float4x4 invMatrix) {
-        float4 localPos = math.mul(invMatrix, new float4(point, 1));
-        return new float3(localPos.xyz);
-    }
-
-    public static quaternion GetRotationFromNormal(float3 normal) {
-        // generate a tangent to the window normal
-        float3 tangent = math.cross(normal, math.up());
-        if (math.lengthsq(tangent) <= float.Epsilon) {
-            tangent = math.cross(normal,math.forward());
-        }
-        // tangent = math.normalize(tangent);
-        float3 bitangent = math.cross(tangent, normal); // upVector for a wall
-
-        return quaternion.LookRotation(normal, bitangent);
-    } 
-
     public float2[] GetVertexUVPositions() {
         float2[] vertexUVPositions = new float2[numVertices];
         
         float3 arbitraryVertexPos = GetVertexPosition(0);
-        quaternion rotation = GetRotationFromNormal(normal);
+        quaternion rotation = MathLib.GetRotationFromNormal(normal);
 
         Debug.Log("rotation: " + rotation);
 
@@ -66,7 +49,7 @@ public struct Polygon // Clockwise. low-level
         float2 maxUV = new float2(float.MinValue);
         float2 minUV = new float2(float.MaxValue);
         for (int i = 0; i < numVertices; i++) {
-            float3 vertexPosInLocal = PointToLocal(GetVertexPosition(i), invPolygonMatrix);
+            float3 vertexPosInLocal = MathLib.PointToLocal(GetVertexPosition(i), invPolygonMatrix);
             // Debug.Log("vertexPosInLocal: " + vertexPosInLocal);
             vertexUVPositions[i] = vertexPosInLocal.xy/2;
 
@@ -183,7 +166,7 @@ public struct Polygon // Clockwise. low-level
 
         float3 hitPointOnPlane = ray.origin + (distanceAlongRay * ray.direction); // ray.direction comes normalized
         float penetration = radius;
-        float3 sphereTouchingPlane = MathLib.ResolvePointPlanePenetration(hitPointOnPlane, ray.direction, normal, penetration);
+        float3 sphereTouchingPlane = MathLib.ResolveSpherePlanePenetration(hitPointOnPlane, ray.direction, normal, penetration);
 
         hitPoint = sphereTouchingPlane; // hitPointOnPlane;
 
@@ -258,6 +241,32 @@ public struct Edge {
 
     public float3 CalcMidpoint() {
         return (vertex1.position + vertex2.position) / 2;
+    }
+}
+
+
+interface ICollider
+{
+    bool RayCast(RayInput ray, out float distanceAlongRay);
+}
+
+
+// public struct SegmentCollider {
+//     public SegmentCollider() {
+//     }
+// }
+
+public struct SphereCollider : ICollider {
+    public float3 center;
+    public float radius;
+
+    public SphereCollider(float3 center, float radius) {
+        this.center = center;
+        this.radius = radius;
+    }
+
+    public bool RayCast(RayInput ray, out float distanceAlongRay) {
+        return MathLib.IsRaySphereIntersecting(ray.start, ray.direction, ray.length, center, radius, out distanceAlongRay);
     }
 }
 

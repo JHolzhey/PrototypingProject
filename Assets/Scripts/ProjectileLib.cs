@@ -145,7 +145,7 @@ public struct Projectile {
         return true;
     }
 
-    public void Update(float deltaTime, BuildingGrid grid) { // Update timeAlive before or after?
+    public void Update(float deltaTime, BuildingGrid grid, TestEntity[] entities) { // Update timeAlive before or after?
         timeAlive += deltaTime;
         prevPosition = position;
         if (!hasBounced) {
@@ -156,14 +156,15 @@ public struct Projectile {
         } else {
             Step(deltaTime);
         }
-        RayCast(grid);
+        Cast(grid, entities);
         CheckTerrainCollision(deltaTime);
     }
 
-    void RayCast(BuildingGrid grid) {
-        int entityHit = grid.RayCast(entities, prevPosition, position);
-        if (entityHit >= 0) {
-            
+    void Cast(BuildingGrid grid,  TestEntity[] entities) {
+        if (radius == 0) {
+            if (grid.RayCast(entities, new RayInput(prevPosition, position), out RayCastResult hit)) {
+                
+            }
         }
     }
 
@@ -184,7 +185,7 @@ public struct Projectile {
                 float dragDeceleration = MathLib.Square(initialSpeed) * constant / mass;
                 float hitSpeed = initialSpeed - dragDeceleration * timeAlive;
                 
-                // can possibly use velocity since its being set in Update()
+                // Can possibly use velocity since its being set in Update()
                 float3 velocityDirection = math.normalize(hitVelocity);
 
                 if (radius != 0) { // Is spherical
@@ -215,7 +216,7 @@ public struct Projectile {
                     float materialPenetration = MathLib.Square(initialSpeed) / (2 * (materialForce/mass));
                     Debug.Log("materialPenetration: " + materialPenetration + "    radius: " + radius);
 
-                    position = MathLib.ResolvePointPlanePenetration(position, velocityDirection, terrainNormal, penetration);
+                    position = MathLib.ResolveSpherePlanePenetration(position, velocityDirection, terrainNormal, penetration);
 
                     timeAlive = -1; // It is dead
                 }

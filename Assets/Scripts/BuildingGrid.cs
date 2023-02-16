@@ -81,6 +81,12 @@ public class BuildingGrid
         }
     }
 
+    public List<int2> RasterCapsule(float3 rayStart, float3 rayEnd) {
+        List<int2> rasterCellCoords = new List<int2>();
+        RasterRay(rayStart, rayEnd, ref rasterCellCoords);
+        return rasterCellCoords;
+    }
+
     public List<int2> RasterRay(float3 rayStart, float3 rayEnd) {
         List<int2> rasterCellCoords = new List<int2>();
         RasterRay(rayStart, rayEnd, ref rasterCellCoords);
@@ -292,11 +298,11 @@ public class BuildingGrid
         }
     }
 
-    public int RayCast(TestEntity[] entities, float3 rayStart, float3 rayEnd) {
-        List<int2> cellCoords = RasterRay(rayStart, rayEnd);
+    public bool RayCast(TestEntity[] entities, RayInput ray, out RayCastResult hit) { // TODO: this is a sphere cast
+        List<int2> cellCoords = RasterRay(ray.start, ray.end);
         for (int i = 0; i < cellCoords.Count; i++) {
             int[] cellEntities = GetCellEntities(cellCoords[i]);
-            int closestHitIndex = -1;  float closestHitAlongRay = math.INFINITY;
+            int closestHitIndex = -1;  float closestDistanceAlongRay = math.INFINITY;
 
             for (int j = 0; j < cellEntities.Length; j++) { // Must go through all entities in cell and choose hit that has smallest distanceAlongRay
                 int entityIndex = cellEntities[j];
@@ -304,21 +310,23 @@ public class BuildingGrid
                 float distanceAlongRay;
                 bool isHit;
                 if (entities[entityIndex].type == EntityType.Polygon) {
-                    isHit = entities[entityIndex].polygon.RayCastConvex(ray.origin, ray.direction, rayLength, out distanceAlongRay, out float3 nearestPointToPlane);
+                    isHit = entities[entityIndex].polygon.RayCastConvex(ray.start, ray.direction, ray.length, out distanceAlongRay, out float3 nearestPointToPlane);
                 } else {
                     float3 sphereCenter = entities[entityIndex].vertexPosition;
-                    isHit = MathLib.IsRaySphereIntersecting(ray.origin, ray.direction, rayLength, sphereCenter, sphereRadius, out distanceAlongRay);
+                    .RayCast
                 }
 
-                if (isHit && distanceAlongRay < closestHitAlongRay) {
-                    closestHitIndex = entityIndex;  closestHitAlongRay = distanceAlongRay;
+                if (isHit && distanceAlongRay < closestDistanceAlongRay) {
+                    closestHitIndex = entityIndex;  closestDistanceAlongRay = distanceAlongRay;
                 }
             }
             if (closestHitIndex != -1) { // Means we hit something
-                return closestHitIndex; // No need to check next cells since this must be the closest hit
+                hit = new RayCastResult(closestHitIndex, float3.zero, closestDistanceAlongRay);
+                return true; // No need to check next cells since this must be the closest hit
             }
         }
-        return -1;
+        hit = new RayCastResult(-1, float3.zero, 0);
+        return false;
     }
 }
 
@@ -364,6 +372,29 @@ struct Cell
     }
     public void Clear() { // TODO: Should remove entities's index too?
         this.numEntities = 0;
+    }
+}
+
+public struct RayInput
+{
+    readonly public float3 start { get; }
+    readonly public float3 end { get; }
+    readonly public float3 direction { get; }
+    readonly public float length { get; }
+
+    public RayInput(float3 start, float3 end) {
+        this.start = start;
+        this.end = end;
+        float3 vector = end - start;
+        direction =  math.normalize(vector);
+        length = math.length(vector);
+    }
+
+    public RayInput(float3 start, float3 direction, float length = math.INFINITY) {
+        this.start = start;
+        this.direction = direction;
+        this.length = length;
+        end = start + direction*length;
     }
 }
 

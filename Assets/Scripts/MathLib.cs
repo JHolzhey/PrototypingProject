@@ -65,7 +65,7 @@ public static class MathLib
         return isIntersecting;
     }
 
-    public static float3 ResolvePointPlanePenetration(float3 currentSphereCenter, float3 sphereVelocityDirection, float3 planeNormal, float penetration) { // penetration includes radius
+    public static float3 ResolveSpherePlanePenetration(float3 currentSphereCenter, float3 sphereVelocityDirection, float3 planeNormal, float penetration) { // penetration includes radius
         float dotDirectionNormal = math.dot(-sphereVelocityDirection, planeNormal);
         float dotCoeff = 1/dotDirectionNormal;
         float distanceBackwards = penetration * dotCoeff;
@@ -159,4 +159,21 @@ public static class MathLib
         minPosition = math.min(rayStart, rayEnd);
         maxPosition = math.max(rayStart, rayEnd);
     }
+
+    public static float3 PointToLocal(float3 point, float4x4 invMatrix) {
+        float4 localPos = math.mul(invMatrix, new float4(point, 1));
+        return new float3(localPos.xyz);
+    }
+
+    public static quaternion GetRotationFromNormal(float3 normal) {
+        // generate a tangent to the window normal
+        float3 tangent = math.cross(normal, math.up());
+        if (math.lengthsq(tangent) <= float.Epsilon) {
+            tangent = math.cross(normal,math.forward());
+        }
+        // tangent = math.normalize(tangent);
+        float3 bitangent = math.cross(tangent, normal); // upVector for a wall
+
+        return quaternion.LookRotation(normal, bitangent);
+    } 
 }

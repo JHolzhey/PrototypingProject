@@ -172,7 +172,7 @@ public class CreateWalls : MonoBehaviour
     {
         for (int i = 0; i < numProjectiles; i++) {
             if (projectiles[i].timeAlive != -1) {
-                projectiles[i].Update(deltaTime);
+                projectiles[i].Update(deltaTime, buildingGrid, entities);
 
                 if (i >= startArrowsIndex) {
                     float3 velocityDirection = math.normalize(projectiles[i].velocity);
