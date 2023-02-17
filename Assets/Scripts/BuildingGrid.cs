@@ -43,8 +43,8 @@ public class BuildingGrid
         //printf("Adding entity [%d] to cell: [%d | %d] gives index: [%d]\n", (int)entity, cell_coords.x, cell_coords.y, index);
         return index;
     }
-    public void RemoveEntityFromCell(int2 cellCoords, int entityIndex, int entity) {
-        int entityToBeRemoved = this.grid[cellCoords.x, cellCoords.y].RemoveEntity(entityIndex);
+    public void RemoveEntityFromCell(int2 cellCoords, int indexOfEntity, int entity) {
+        int entityToBeRemoved = this.grid[cellCoords.x, cellCoords.y].RemoveEntity(indexOfEntity);
         Debug.Assert(entity == entityToBeRemoved);
     }
 
@@ -87,6 +87,7 @@ public class BuildingGrid
         return rasterCellCoords;
     }
 
+    public List<int2> RasterRay(RayInput ray) { return RasterRay(ray.start, ray.end); }
     public List<int2> RasterRay(float3 rayStart, float3 rayEnd) {
         List<int2> rasterCellCoords = new List<int2>();
         RasterRay(rayStart, rayEnd, ref rasterCellCoords);
@@ -123,13 +124,13 @@ public class BuildingGrid
             rasterCellCoords.Add(new int2(currentX - (1 - boolX), Y0));
     }
 
-    public List<int2> RasterRayOneX(float3 rayStart, float3 rayEnd, bool isReverse = false) { // Only for testing right now
+    public List<int2> RasterEdge(float3 rayStart, float3 rayEnd, bool isReverse = false) { // Only for testing right now
         List<int2> rasterCellCoords = new List<int2>();
-        RasterRayOneX(rayStart, rayEnd, ref rasterCellCoords, isReverse);
+        RasterEdge(rayStart, rayEnd, ref rasterCellCoords, isReverse);
         return rasterCellCoords;
     }
 
-    public void RasterRayOneX(float3 rayStart, float3 rayEnd, ref List<int2> rasterCellCoords, bool isReverse = false)
+    public void RasterEdge(float3 rayStart, float3 rayEnd, ref List<int2> rasterCellCoords, bool isReverse = false)
     {
         float3 rayVector = rayEnd - rayStart;
         float3 startRelativeToBottomLeftPos = (rayStart - bottomLeftWorld) / cellSize;
@@ -159,7 +160,7 @@ public class BuildingGrid
         rasterCellCoords.Add(new int2(currentX - (1 - boolX), YUsing2));
     }
 
-    public List<int2> RasterPolygon(Polygon polygon, out List<int2> bottomEdgeCellCoords, out List<int2> topEdgeCellCoords)
+    public List<int2> RasterPolygon(Polygon polygon, out List<int2> bottomEdgeCellCoords, out List<int2> topEdgeCellCoords) // Add check if ray is out of bounds
     {
         // Debug.Log("polygon.numVertices: " + polygon.numVertices);
         List<int2> rasterCellCoords = new List<int2>(); // All cell coords of fully rasterized polygon (if a cell is barely clipped, it will still be included)
@@ -202,7 +203,7 @@ public class BuildingGrid
             }
             bool isZPositive = edge.vector.z > 0;
             bool isReverseRay = (!isTopEdge && isZPositive) || (isTopEdge && !isZPositive); // Make RasterRayOneX work properly (enforce top is top raster and vice versa)
-            RasterRayOneX(edge.vertex1.position, edge.vertex2.position, ref currentEdgeCellCoords, isReverseRay); // Raster so only one cell coord per X cell (for each end)
+            RasterEdge(edge.vertex1.position, edge.vertex2.position, ref currentEdgeCellCoords, isReverseRay); // Raster so only one cell coord per X cell (for each end)
         }
 
         int numXCoords = bottomEdgeCellCoords.Count;
@@ -298,7 +299,7 @@ public class BuildingGrid
         }
     }
 
-    public bool RayCast(TestEntity[] entities, RayInput ray, out RayCastResult hit) { // TODO: this is a sphere cast
+    public bool RayCast(TestEntity[] entities, RayInput ray, out RayCastResult hit) {
         List<int2> cellCoords = RasterRay(ray.start, ray.end);
         for (int i = 0; i < cellCoords.Count; i++) {
             int[] cellEntities = GetCellEntities(cellCoords[i]);
@@ -307,32 +308,22 @@ public class BuildingGrid
             for (int j = 0; j < cellEntities.Length; j++) { // Must go through all entities in cell and choose hit that has smallest distanceAlongRay
                 int entityIndex = cellEntities[j];
 
-                float distanceAlongRay;
-                bool isHit;
-                if (entities[entityIndex].type == EntityType.Polygon) {
-                    isHit = entities[entityIndex].polygon.RayCastConvex(ray.start, ray.direction, ray.length, out distanceAlongRay, out float3 nearestPointToPlane);
-                } else {
-                    float3 sphereCenter = entities[entityIndex].vertexPosition;
-                    .RayCast
-                }
-
-                if (isHit && distanceAlongRay < closestDistanceAlongRay) {
+                if (entities[entityIndex].collider.IsRayCastColliding(ray, out float distanceAlongRay) && distanceAlongRay < closestDistanceAlongRay) {
                     closestHitIndex = entityIndex;  closestDistanceAlongRay = distanceAlongRay;
                 }
             }
             if (closestHitIndex != -1) { // Means we hit something
-                hit = new RayCastResult(closestHitIndex, float3.zero, closestDistanceAlongRay);
+                hit = new RayCastResult(closestHitIndex, float3.zero, closestDistanceAlongRay, ray.start + ray.direction * closestDistanceAlongRay);
                 return true; // No need to check next cells since this must be the closest hit
             }
         }
-        hit = new RayCastResult(-1, float3.zero, 0);
+        hit = new RayCastResult();
         return false;
     }
 }
 
 struct Cell
 {
-	// High, hard coded upper limit
 	private int []entities;
 	public int numEntities { get; private set; } // How many entities are currently held in the array above
 
@@ -390,7 +381,7 @@ public struct RayInput
         length = math.length(vector);
     }
 
-    public RayInput(float3 start, float3 direction, float length = math.INFINITY) {
+    public RayInput(float3 start, float3 direction, float length = 100) {
         this.start = start;
         this.direction = direction;
         this.length = length;
@@ -403,10 +394,12 @@ public struct RayCastResult
     public int hitEntity { get; private set; }
     public float3 normal { get; private set; }
     public float distance { get; private set; }
+    public float3 hitPoint { get; private set; }
 
-    public RayCastResult(int hitEntity, float3 normal, float distance) {
+    public RayCastResult(int hitEntity, float3 normal, float distance, float3 nearestPoint) {
         this.hitEntity = hitEntity;
         this.normal = normal;
         this.distance = distance;
+        this.hitPoint = nearestPoint;
     }
 }

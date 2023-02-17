@@ -145,7 +145,8 @@ public struct Projectile {
         return true;
     }
 
-    public void Update(float deltaTime, BuildingGrid grid, TestEntity[] entities) { // Update timeAlive before or after?
+    public void Update(float deltaTime, BuildingGrid grid, TestEntity[] entities) {
+        if (timeAlive == -1) return;
         timeAlive += deltaTime;
         prevPosition = position;
         if (!hasBounced) {
@@ -162,8 +163,11 @@ public struct Projectile {
 
     void Cast(BuildingGrid grid,  TestEntity[] entities) {
         if (radius == 0) {
-            if (grid.RayCast(entities, new RayInput(prevPosition, position), out RayCastResult hit)) {
-                
+            RayInput ray = new RayInput(prevPosition, position);
+            if (grid.RayCast(entities, ray, out RayCastResult hit)) {
+                // float penetration = position - (prevPosition + ray.direction * hit.distance);
+                position = hit.hitPoint; // MathLib.ResolveSpherePlanePenetration(position, ray.direction, hit.normal, penetration);
+                timeAlive = -1;
             }
         }
     }
@@ -215,6 +219,8 @@ public struct Projectile {
                     
                     float materialPenetration = MathLib.Square(initialSpeed) / (2 * (materialForce/mass));
                     Debug.Log("materialPenetration: " + materialPenetration + "    radius: " + radius);
+
+
 
                     position = MathLib.ResolveSpherePlanePenetration(position, velocityDirection, terrainNormal, penetration);
 

@@ -23,12 +23,15 @@ public static class MathLib
     }
 
     public static bool IsRaySphereIntersecting(float3 rayStart, float3 rayDirection, float rayLength, float3 sphereCenter, float sphereRadius, out float distanceAlongRay) {
-        float3 nearestPointOnRay = NearestPointOnRayToPoint(sphereCenter, rayStart, rayDirection, rayLength, out distanceAlongRay);
-        return IsSpheresIntersecting(sphereCenter, sphereRadius, nearestPointOnRay);
+        return IsRaySphereIntersecting(rayStart, rayDirection, rayLength, sphereCenter, sphereRadius, out distanceAlongRay, out float3 _);
     }
 
     public static bool IsRaySphereIntersecting(float3 rayStart, float3 rayDirection, float rayLength, float3 sphereCenter, float sphereRadius, out float3 nearestPointOnRay) {
-        nearestPointOnRay = NearestPointOnRayToPoint(sphereCenter, rayStart, rayDirection, rayLength, out float distanceAlongRay);
+        return IsRaySphereIntersecting(rayStart, rayDirection, rayLength, sphereCenter, sphereRadius, out float _, out nearestPointOnRay);
+    }
+
+    public static bool IsRaySphereIntersecting(float3 rayStart, float3 rayDirection, float rayLength, float3 sphereCenter, float sphereRadius, out float distanceAlongRay, out float3 nearestPointOnRay) {
+        nearestPointOnRay = NearestPointOnRayToPoint(sphereCenter, rayStart, rayDirection, rayLength, out distanceAlongRay);
         return IsSpheresIntersecting(sphereCenter, sphereRadius, nearestPointOnRay);
     }
     // Untested:

@@ -47,6 +47,14 @@ public static class CommonLib
     public static Color[] CycleColors = { Color.blue, Color.cyan, Color.green, Color.yellow, Color.red };
 }
 
+public static class MiscExtensions
+{
+    public static RayInput ScreenPointToRay(this Camera camera, float3 screenPos, float rayLength = 100) {
+        Ray ray = camera.ScreenPointToRay(Input.mousePosition);
+        return new RayInput(ray.origin, ray.direction, rayLength);
+    }
+}
+
 public static class ArrayExtensions
 {
     public static T[] SubArray<T>(this T[] array, int startIndex, int length) { // Shallow copy
@@ -71,6 +79,14 @@ public static class ArrayExtensions
 
     public static Vector2[] ConvertToVector2Array(this float2[] data) {
         Vector2[] castData = new Vector2[data.Length];
+        for (int i = 0; i < data.Length; i++) {
+            castData[i] = data[i];
+        }
+        return castData;
+    }
+
+    public static float2[] ConvertToFloat2Array(this Vector2[] data) {
+        float2[] castData = new float2[data.Length];
         for (int i = 0; i < data.Length; i++) {
             castData[i] = data[i];
         }

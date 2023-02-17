@@ -58,7 +58,7 @@ public class CreateWalls : MonoBehaviour
 
         buildingGrid = new BuildingGrid();
 
-        float3[] vertexPositions2 = new float3[] {new float3(1.5f, 0.2f, -10.5f), new float3(6.5f, 0.6f, -14.5f), new float3(0.5f, 0.6f, -18.5f), new float3(-6.5f, 0.6f, -14.5f), new float3(-1.5f, 0.2f, -10.5f)};
+        float3[] vertexPositions2 = new float3[] {new float3(1.5f, 0.6f, -10.5f), new float3(6.5f, 0.6f, -14.5f), new float3(0.5f, 0.6f, -18.5f), new float3(-6.5f, 0.6f, -14.5f), new float3(-1.5f, 0.6f, -10.5f)};
         testPolygon2 = new Polygon(vertexPositions2);
 
         float3[] vertexPositions3 = new float3[] {new float3(1, 0.2f, 5), new float3(1.5f, 2, 5), new float3(-1.5f, 2, 5), new float3(-1, 0.2f, 5)};
@@ -86,7 +86,6 @@ public class CreateWalls : MonoBehaviour
             projectiles[i] = new Projectile(maxRange, radius, mass, friction);
         }
         initialSpeed = math.sqrt(maxRange * GlobalConstants.GRAVITY);
-        print(initialSpeed);
         
 
         int totalVertices = vertexPositions1.Length + vertexPositions2.Length + vertexPositions3.Length;
@@ -97,19 +96,21 @@ public class CreateWalls : MonoBehaviour
         entities = new TestEntity[totalVertices + 3];
         for (int i = 0; i < totalVertices; i++) {
             GameObject vertexSphere = CommonLib.CreatePrimitive(PrimitiveType.Sphere, verticesTest[i], new float3(0.1f), Color.white);
-            entities[i] = new TestEntity(EntityType.Vertex, vertexSphere, verticesTest[i], new Polygon());
+            SphereCollider sphereCollider = new SphereCollider(verticesTest[i], 0.1f);
+            entities[i] = new TestEntity(EntityType.Vertex, sphereCollider, vertexSphere);
         }
-        entities[totalVertices] = new TestEntity(EntityType.Polygon, TestDrawPolygon(testPolygon1), float3.zero, testPolygon1);
-        entities[totalVertices + 1] = new TestEntity(EntityType.Polygon, TestDrawPolygon(testPolygon2), float3.zero, testPolygon2);
-        entities[totalVertices + 2] = new TestEntity(EntityType.Polygon, TestDrawPolygon(testPolygon3), float3.zero, testPolygon3);
+        entities[totalVertices] = new TestEntity(EntityType.Polygon, testPolygon1, TestDrawPolygon(testPolygon1));
+        entities[totalVertices + 1] = new TestEntity(EntityType.Polygon, testPolygon2, TestDrawPolygon(testPolygon2));
+        entities[totalVertices + 2] = new TestEntity(EntityType.Polygon, testPolygon3, TestDrawPolygon(testPolygon3));
         float2[] uvPosition = testPolygon1.GetVertexUVPositions();
 
         for (int entityIndex = 0; entityIndex < entities.Length; entityIndex++) {
-            if (entities[entityIndex].type == EntityType.Polygon) {
-                entities[entityIndex].polygon.AddToGrid(buildingGrid, entityIndex);
-            } else {
-                buildingGrid.AddEntityToCell(verticesTest[entityIndex], entityIndex);
-            }
+            entities[entityIndex].collider.AddToGrid(buildingGrid, entityIndex);
+            // if (entities[entityIndex].type == EntityType.Polygon) {
+            //     entities[entityIndex].collider.AddToGrid(buildingGrid, entityIndex);
+            // } else {
+            //     buildingGrid.AddEntityToCell(verticesTest[entityIndex], entityIndex);
+            // }
         }
         Terrain.activeTerrain.InitLayerToMaterialIndices();
     }
@@ -119,7 +120,7 @@ public class CreateWalls : MonoBehaviour
     {
         frameNum++;
 
-        Ray ray = cam.ScreenPointToRay(Input.mousePosition);
+        RayInput ray = cam.ScreenPointToRay(Input.mousePosition, 10);
         TestEntitiesRayCast(ray);
 
         if (Input.GetMouseButtonDown(0)) {
@@ -128,12 +129,11 @@ public class CreateWalls : MonoBehaviour
             // CommonLib.ObjectBetween2Points(ray.origin, ray.origin + ray.direction*20, CommonLib.CreatePrimitive(PrimitiveType.Cylinder, float3.zero, new float3(sphereCastRadius*2), Color.grey));
             
             TerrainCollider terrainCollider = Terrain.activeTerrain.GetComponent<TerrainCollider>();
-            if (terrainCollider.Raycast(ray, out RaycastHit hit, 40)) {
+            if (terrainCollider.Raycast(new Ray(ray.start, ray.direction), out RaycastHit hit, 40)) {
                 float3 rayHitPosition = hit.point;
                 // lineRenderer.SetPosition(0, transform.position - new Vector3(0, 0.01f, 0));
                 // lineRenderer.SetPosition(1, rayHitPosition);
                 Materials.Type materialHit = Terrain.activeTerrain.SampleMaterial(rayHitPosition);
-                Debug.Log(materialHit.name);
                 
                 for (int i = 0; i < testPolygon1.numVertices; i++) {
                     polygonRenderer.SetPosition(i, testPolygon1.GetVertexPosition(i));// - testPolygon.Normal * testPolygon.Thickness/2);
@@ -187,16 +187,14 @@ public class CreateWalls : MonoBehaviour
         }
     }
 
-    void TestRayCast(Ray ray)
+    void TestRayCast(RayInput ray)
     {
-        float rayLength = 10;
-
         for (int i = 0; i < selectedPolygon.numVertices; i++) {
             polygonVertexHandles[i].transform.position = float3.zero; // Deselect polygon
         }
 
         //float rayRadius = 0.3f;
-        if (testPolygon1.RayCastConvex(ray.origin, ray.direction, rayLength, out float _, out float3 hitPoint)) {
+        if (testPolygon1.RayCastConvex(ray, out float _, out float3 hitPoint)) {
             CommonLib.CreatePrimitive(PrimitiveType.Sphere, hitPoint, new float3(0.05f), Color.white, new Quaternion(), 5.0f);
 
             selectedPolygon = testPolygon1;
@@ -213,21 +211,19 @@ public class CreateWalls : MonoBehaviour
         float3 capsuleSphere1 = capsule.transform.position - new Vector3(0, capsuleHeight/2, 0);
         float3 capsuleSphere2 = capsule.transform.position + new Vector3(0, capsuleHeight/2, 0);
 
-        if (MathLib.IsRayAACapsuleIntersecting(ray.origin, ray.origin + ray.direction*10, capsuleSphere1, capsuleSphere2, capsuleHeight, capsuleRadius)) {
+        if (MathLib.IsRayAACapsuleIntersecting(ray.start, ray.end, capsuleSphere1, capsuleSphere2, capsuleHeight, capsuleRadius)) {
             // print("Hit capsule");
         } else {
             // print("Missed capsule");
         }
     }
 
-    void TestEntitiesRayCast(Ray ray) {
+    void TestEntitiesRayCast(RayInput ray) {
         entities[vertexSphereHoveringIndex].obj.transform.localScale = new float3(0.1);
         entities[vertexSphereHoveringIndex].obj.GetComponent<Renderer>().material.color = Color.white;
-        entities[polygonHoveringIndex].obj.GetComponent<Renderer>().material.color = Color.gray;
+        entities[polygonHoveringIndex].obj.GetComponent<Renderer>().material.color = Color.white;
 
-        float rayLength = 10;
-        float sphereRadius = 0.1f;
-        List<int2> cellCoords = buildingGrid.RasterRay(ray.origin, ray.origin + ray.direction*rayLength);
+        List<int2> cellCoords = buildingGrid.RasterRay(ray);
         for (int i = 0; i < cellCoords.Count; i++) {
             int[] cellEntities = buildingGrid.GetCellEntities(cellCoords[i]);
             int closestHitIndex = -1;  float closestHitAlongRay = math.INFINITY;
@@ -236,13 +232,13 @@ public class CreateWalls : MonoBehaviour
                 int entityIndex = cellEntities[j];
 
                 float distanceAlongRay;
-                bool isHit;
-                if (entities[entityIndex].type == EntityType.Polygon) {
-                    isHit = entities[entityIndex].polygon.RayCastConvex(ray.origin, ray.direction, rayLength, out distanceAlongRay, out float3 nearestPointToPlane);
-                } else {
-                    float3 sphereCenter = entities[entityIndex].vertexPosition;
-                    isHit = MathLib.IsRaySphereIntersecting(ray.origin, ray.direction, rayLength, sphereCenter, sphereRadius, out distanceAlongRay);
-                }
+                bool isHit = entities[entityIndex].collider.IsRayCastColliding(ray, out distanceAlongRay);
+                // if (entities[entityIndex].type == EntityType.Polygon) {
+                //     isHit = entities[entityIndex].collider.RayCast(ray, out distanceAlongRay);
+                // } else {
+                //     float3 sphereCenter = entities[entityIndex].vertexPosition;
+                //     isHit = MathLib.IsRaySphereIntersecting(ray.start, ray.direction, rayLength, sphereCenter, sphereRadius, out distanceAlongRay);
+                // }
 
                 if (isHit && distanceAlongRay < closestHitAlongRay) {
                     closestHitIndex = entityIndex;  closestHitAlongRay = distanceAlongRay;
@@ -286,7 +282,7 @@ public class CreateWalls : MonoBehaviour
             float3 lineEnd = GameObject.Find("RayEnd").transform.position;
             Gizmos.DrawLine(lineStart, lineEnd);
             
-            List<int2> cellCoords = buildingGrid.RasterRayOneX(lineStart, lineEnd, true);
+            List<int2> cellCoords = buildingGrid.RasterEdge(lineStart, lineEnd, true);
             // print("Count: " + cellCoords.Count);
             for (int i = 0; i < cellCoords.Count; i++) {
                 Gizmos.color = Color.blue;
@@ -313,16 +309,14 @@ public enum EntityType
 
 public struct TestEntity
 {
-    public float3 vertexPosition;
-    public Polygon polygon;
+    public ICollider collider;
     public GameObject obj;
     public EntityType type;
 
-    public TestEntity(EntityType type, GameObject obj, float3 vertexPosition, Polygon polygon) {
-        this.obj = obj;
-        this.vertexPosition = vertexPosition;
-        this.polygon = polygon;
+    public TestEntity(EntityType type, ICollider collider, GameObject obj) {
         this.type = type;
+        this.collider = collider;
+        this.obj = obj;
     }
 }
 
@@ -345,29 +339,28 @@ public class QuadCreator
         Mesh mesh = meshFilter.mesh;
 
         Vector3[] existingVertices = mesh.vertices;
-        Debug.Log("existingVertices: " + existingVertices.Length);
         Vector3[] addVertices = polygon.GetFaceVertices(isFrontFace);
 
         Vector3[] vertices = existingVertices.Concat(addVertices);
-        Debug.Log("totaledVertices: " + vertices.Length);
 
-        // int[] vertexIndices = polygon.GetFrontIndicesFan();
-        // for (int i = 0; i < vertexIndices.Length; i++) {
-        //     Debug.Log(vertexIndices[i]);
-        // }
         int[] existingTriIndices = mesh.triangles;
-        Debug.Log("existingTriIndices: " + existingTriIndices.Length);
         int[] addTriIndices = polygon.GetFaceTriIndicesFan(isFrontFace);
         
         int[] triIndices = existingTriIndices.Concat(addTriIndices);
         for (int i = existingTriIndices.Length; i < existingTriIndices.Length + addTriIndices.Length; i++) {
             triIndices[i] = triIndices[i] + existingVertices.Length;
         }
-        Debug.Log("triIndices: " + triIndices.Length);
 
+        // Vector3[] existingNormals = mesh.normals;
+        // Vector3[] addNormals = polygon.GetFaceVertices(isFrontFace);
+        // Vector3[] normals = existingVertices.Concat(addVertices);
         Vector3[] normals = new Vector3[vertices.Length].Populate(-polygon.normal * (isFrontFace*2 - 1));
 
-        float2[] uvs = polygon.GetVertexUVPositions(); // new float2[5] 
+        float2[] existingUVs = mesh.uv.ConvertToFloat2Array();
+        float2[] addUVs = polygon.GetVertexUVPositions();
+        float2[] uvs = existingUVs.Concat(addUVs); 
+        
+        // new float2[5] 
         // {
         //     new float2(0, 0),
         //     new float2(1, 0),

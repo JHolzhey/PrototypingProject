@@ -4,7 +4,7 @@ using Unity.Mathematics;
 using UnityEngine;
 using UnityEngine.Assertions;
 
-public struct Polygon // Clockwise. low-level
+public struct Polygon : ICollider // Clockwise. low-level struct
 {
     Vertex[] vertices;
     Edge[] edges; // Edges by vertices in a triangle are: (0 - 1), (1 - 2), (2 - 0)
@@ -40,8 +40,6 @@ public struct Polygon // Clockwise. low-level
         
         float3 arbitraryVertexPos = GetVertexPosition(0);
         quaternion rotation = MathLib.GetRotationFromNormal(normal);
-
-        Debug.Log("rotation: " + rotation);
 
         float4x4 polygonMatrix = new float4x4(rotation, arbitraryVertexPos);
         float4x4 invPolygonMatrix = math.inverse(polygonMatrix);
@@ -142,9 +140,13 @@ public struct Polygon // Clockwise. low-level
         colliderSections = null;
     }
 
-    public bool RayCastConvex(float3 rayOrigin, float3 rayDirection, float rayLength, out float distanceAlongRay, out float3 nearestPointToPlane) { // Old: float maxDistance = math.INFINITY
-        if (MathLib.IsRayPlaneIntersecting(rayOrigin, rayDirection, rayLength, normal, originDistance, out distanceAlongRay, out nearestPointToPlane)) {
-            return IsPointInConvex(nearestPointToPlane, rayDirection);
+    public bool IsRayCastColliding(RayInput ray, out float distanceAlongRay) {
+        return RayCastConvex(ray, out distanceAlongRay, out float3 nearestPointToPlane);
+    }
+
+    public bool RayCastConvex(RayInput ray, out float distanceAlongRay, out float3 nearestPointToPlane) { // Old: float maxDistance = math.INFINITY
+        if (MathLib.IsRayPlaneIntersecting(ray.start, ray.direction, ray.length, normal, originDistance, out distanceAlongRay, out nearestPointToPlane)) {
+            return IsPointInConvex(nearestPointToPlane, ray.direction);
         }
         return false;
     }
@@ -245,11 +247,13 @@ public struct Edge {
 }
 
 
-interface ICollider
+public interface ICollider
 {
-    bool RayCast(RayInput ray, out float distanceAlongRay);
-}
+    void AddToGrid(BuildingGrid grid, int entityIndex);
+    bool IsRayCastColliding(RayInput ray, out float distanceAlongRay);
 
+    // bool SphereCast(RayInput ray, out float distanceAlongRay);
+}
 
 // public struct SegmentCollider {
 //     public SegmentCollider() {
@@ -265,7 +269,11 @@ public struct SphereCollider : ICollider {
         this.radius = radius;
     }
 
-    public bool RayCast(RayInput ray, out float distanceAlongRay) {
+    public void AddToGrid(BuildingGrid grid, int entityIndex) {
+        grid.AddEntityToCell(center, entityIndex);
+    }
+
+    public bool IsRayCastColliding(RayInput ray, out float distanceAlongRay) {
         return MathLib.IsRaySphereIntersecting(ray.start, ray.direction, ray.length, center, radius, out distanceAlongRay);
     }
 }
