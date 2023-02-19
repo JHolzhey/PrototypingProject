@@ -23,7 +23,7 @@ public static class ProjectileLib
             isInRange = true; return answerAngle2; //print("Lofted") // TODO: Get rid of this: it's never used, never happens in original slingshot too
         }
     }
-    // Trajectory is a struct that contains important projectile trajectory values used in
+    // Trajectory is a struct that contains important trajectory values used in computing projectile position
     public static bool ComputeTrajectory(float3 startPoint, float3 targetPoint, float initialSpeed, bool allowOutOfRange, out Trajectory trajectory) {
         float3 distanceVector = targetPoint - startPoint;
         float3 horizontalDistanceVector = new float3(distanceVector.x, 0, distanceVector.z);
@@ -70,6 +70,7 @@ public static class ProjectileLib
         return approxLeadPosition;
     }
 
+    // TODO: Unfinished:
     public static float2 CalcAimSpread(float3 startPoint, float3 targetPoint, float3 normal, float initialSpeed, float launchAngle, float horizontalAngleSpread, float verticalAngleSpread) {
         float3 distanceVector = targetPoint - startPoint;
         float distance = math.length(distanceVector);
@@ -105,9 +106,19 @@ public static class ProjectileLib
     public static float CalcYFromX(float X, float launchAngle, float initialSpeed) {
         return math.tan(launchAngle)*X - g / (2 * MathLib.Square(initialSpeed) * MathLib.Square(math.cos(launchAngle))) * MathLib.Square(X);
     }
+
+    public static float CalcDragSpeedDecrease(float initialSpeed, float radius, float mass, float timeAlive) { // Prop. to initialSpeed^2, timeAlive, radius, and 1/mass
+        float dragCoeff = 0.47f;
+        float constant = 0.5f * Materials.airDensity * dragCoeff;
+        float area = math.PI * MathLib.Square(radius);
+        float dragForce = (constant * area * MathLib.Square(initialSpeed));
+        float dragDeceleration = dragForce / mass;
+        return -(dragDeceleration * timeAlive); // TODO: Not sure if this model works
+    }
 }
 
 public struct Projectile {
+    public static float radiusThreshold = 0.05f;
     public Trajectory trajectory;
     public float3 velocity { get; set; } // Should be private set for these 2
     public float3 position { get; set; }
@@ -152,17 +163,17 @@ public struct Projectile {
         if (!hasBounced) {
             horizontalDistanceTraveled += trajectory.horizontalSpeed * deltaTime;
             position = trajectory.GetPositionAtTime(timeAlive, horizontalDistanceTraveled);
-            velocity = position - prevPosition;
+            velocity = position - prevPosition; // For projectiles that rotate through the air
             // UpdatePitchAngle();
         } else {
             Step(deltaTime);
         }
-        Cast(grid, entities);
+        CastCollide(grid, entities);
         CheckTerrainCollision(deltaTime);
     }
 
-    void Cast(BuildingGrid grid,  TestEntity[] entities) {
-        if (radius == 0) {
+    void CastCollide(BuildingGrid grid,  TestEntity[] entities) {
+        if (radius <= radiusThreshold) {
             RayInput ray = new RayInput(prevPosition, position);
             if (grid.RayCast(entities, ray, out RayCastResult hit)) {
                 // float penetration = position - (prevPosition + ray.direction * hit.distance);
@@ -181,26 +192,24 @@ public struct Projectile {
         // if (position.y - radius <= terrainY) { // basic quick method, better method below
         if (MathLib.IsSpherePlaneIntersecting(position, radius, terrainNormal, pointOnTerrainPlane, out float penetration))
         {
-            if (!isRolling) { // Projectile has hit the ground for the first time because it has not been rolling
-                float3 hitVelocity = (position - prevPosition) / deltaTime; // Manually calculate velocity because haven't been using Euler til now
-
-                float constant = 0.000192f; // A = pi * 0.01^2, Cd = 1, rho = 1.225
+            if (!isRolling) { // Projectile has hit the ground after previously being in the air because it has not been rolling
                 float initialSpeed = math.length(trajectory.initialVelocity);
-                float dragDeceleration = MathLib.Square(initialSpeed) * constant / mass;
-                float hitSpeed = initialSpeed - dragDeceleration * timeAlive;
-                
-                // Can possibly use velocity since its being set in Update()
-                float3 velocityDirection = math.normalize(hitVelocity);
+                float dragSpeedDecrease = ProjectileLib.CalcDragSpeedDecrease(initialSpeed, radius, mass, timeAlive);
 
-                if (radius != 0) { // Is spherical
+                float3 positionDiff = position - prevPosition;
+                float3 velocityDirection = math.normalize(positionDiff);
+                float hitSpeed = math.length(positionDiff / deltaTime) + dragSpeedDecrease;
+                velocity = velocityDirection * hitSpeed; // Manually calculate velocity because haven't been using Euler til now
+
+                if (radius > radiusThreshold) { // Is spherical
                     float3 fixPenetrationVector = (penetration) * terrainNormal;
                     position += fixPenetrationVector;
 
                     // float3 reflectDirection = math.reflect(velocityDirection, terrainNormal);
                     float restitution = 0.5f;
                     //float normalForce = mass * GlobalConstants.GRAVITY * math.dot(math.up(), terrainNormal);
-                    float3 perpendicularVelocity = math.project(hitVelocity, terrainNormal);
-                    float3 parallelVelocity = hitVelocity - perpendicularVelocity;
+                    float3 perpendicularVelocity = math.project(velocity, terrainNormal);
+                    float3 parallelVelocity = velocity - perpendicularVelocity;
                     float3 result = (parallelVelocity) - (restitution * perpendicularVelocity);
                     
                     // float3 reflectedVelocity = MathLib.Reflect(hitVelocity, terrainNormal, 0.4f);
@@ -218,7 +227,7 @@ public struct Projectile {
                     float materialForce = materialDynamicPressure * (math.PI * MathLib.Square(radius + 0.01f));
                     
                     float materialPenetration = MathLib.Square(initialSpeed) / (2 * (materialForce/mass));
-                    Debug.Log("materialPenetration: " + materialPenetration + "    radius: " + radius);
+                    // Debug.Log("materialPenetration: " + materialPenetration + "    radius: " + radius);
 
 
 

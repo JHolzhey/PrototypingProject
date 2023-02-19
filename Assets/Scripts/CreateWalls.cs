@@ -24,9 +24,10 @@ public class CreateWalls : MonoBehaviour
     GameObject[] projectileObjects;
     GameObject[] projectilesVelPointers;
     int numProjectiles;
+    int maxProjectiles = 1000;
     public float maxRange = 40;
     float initialSpeed;
-    public float projectileRadius = 0.5f;
+    public float projectileSphereRadius = 0.5f;
     public float mass = 1;
     public float friction = 0.05f;
     public int startArrowsIndex = 3; 
@@ -69,17 +70,17 @@ public class CreateWalls : MonoBehaviour
         // TestDrawPolygon(new GameObject("TestPolygon2"), testPolygon2, 0);
         // TestDrawPolygon(new GameObject("TestPolygon3"), testPolygon3);
         
-        projectilesVelPointers = new GameObject[100];
-        projectileObjects = new GameObject[100];
-        projectiles = new Projectile[100];
-        for (int i = 0; i < 100; i++) {
+        projectilesVelPointers = new GameObject[maxProjectiles];
+        projectileObjects = new GameObject[maxProjectiles];
+        projectiles = new Projectile[maxProjectiles];
+        for (int i = 0; i < maxProjectiles; i++) {
             PrimitiveType primitiveType = PrimitiveType.Sphere; 
-            float radius = projectileRadius;
-            float3 size = new float3(projectileRadius*2);
+            float radius = projectileSphereRadius;
+            float3 size = new float3(projectileSphereRadius*2);
             if (i >= startArrowsIndex) {
                 primitiveType = PrimitiveType.Cube;
-                radius = 0;
-                size = new float3(0.1f, 0.1f, projectileRadius*2);
+                radius = 0.01f;
+                size = new float3(0.1f, 0.1f, projectileSphereRadius*2);
             }
             projectileObjects[i] = CommonLib.CreatePrimitive(primitiveType, float3.zero, size, Color.gray);
             projectilesVelPointers[i] = CommonLib.CreatePrimitive(PrimitiveType.Cube, float3.zero, new float3(0.01f), Color.red);
@@ -120,7 +121,7 @@ public class CreateWalls : MonoBehaviour
     {
         frameNum++;
 
-        RayInput ray = cam.ScreenPointToRay(Input.mousePosition, 10);
+        RayInput ray = cam.ScreenPointToRay(Input.mousePosition, 30);
         TestEntitiesRayCast(ray);
 
         if (Input.GetMouseButtonDown(0)) {
@@ -147,14 +148,21 @@ public class CreateWalls : MonoBehaviour
 
                 TestRayCast(ray);
                 
+                int numArchers = 10;
+                float3 startPos = new float3(-15.4f, 0.8f, -15.5f);
+                for (int i = 0; i < numArchers; i++) {
+                    float3 archerPos = startPos + new float3(i/2, 0, 0);
+                    if (projectiles[numProjectiles].ComputeTrajectory(archerPos, rayHitPosition, initialSpeed, false)) {
 
-                if (projectiles[numProjectiles].ComputeTrajectory(new float3(-5.45f,1.1f,-9.4f), rayHitPosition, initialSpeed, false)) {
-                    float3[] arcPositions = projectiles[numProjectiles].trajectory.GetPositionsOnArc(10);
-                    for (int i = 0; i < arcPositions.Length; i++) {
-                        lineRenderer.SetPosition(i, arcPositions[i]);
+                        if (i == 1) {
+                            float3[] arcPositions = projectiles[numProjectiles].trajectory.GetPositionsOnArc(10);
+                            for (int j = 0; j < arcPositions.Length; j++) {
+                                lineRenderer.SetPosition(i, arcPositions[i]);
+                            }
+                        }
+
+                        numProjectiles++;
                     }
-
-                    numProjectiles++;
                 }
             }
         }
@@ -183,6 +191,9 @@ public class CreateWalls : MonoBehaviour
                     projectileObjects[i].transform.position = projectiles[i].position;
                 }
                 //CommonLib.ObjectBetween2Points(projectiles[i].position, projectiles[i].position + projectiles[i].velocity, projectilesVelPointers[i]); // model velocity
+            } else {
+                // projectiles[i] = projectiles[numProjectiles - 1]; // replace with trajectory at the end
+                // numProjectiles--;
             }
         }
     }
@@ -208,10 +219,10 @@ public class CreateWalls : MonoBehaviour
         GameObject capsule = GameObject.Find("Capsule");
         float capsuleRadius = capsule.GetComponent<Renderer>().bounds.size.x/2;
         float capsuleHeight = capsule.GetComponent<Renderer>().bounds.size.y - capsuleRadius*2;
-        float3 capsuleSphere1 = capsule.transform.position - new Vector3(0, capsuleHeight/2, 0);
-        float3 capsuleSphere2 = capsule.transform.position + new Vector3(0, capsuleHeight/2, 0);
+        float3 capsuleSphereStart = capsule.transform.position - new Vector3(0, capsuleHeight/2, 0);
+        float3 capsuleSphereEnd = capsule.transform.position + new Vector3(0, capsuleHeight/2, 0);
 
-        if (MathLib.IsRayAACapsuleIntersecting(ray.start, ray.end, capsuleSphere1, capsuleSphere2, capsuleHeight, capsuleRadius)) {
+        if (MathLib.IsRayAACapsuleIntersecting(ray.start, ray.end, capsuleSphereStart, capsuleSphereEnd, capsuleHeight, capsuleRadius)) {
             // print("Hit capsule");
         } else {
             // print("Missed capsule");
@@ -340,12 +351,11 @@ public class QuadCreator
 
         Vector3[] existingVertices = mesh.vertices;
         Vector3[] addVertices = polygon.GetFaceVertices(isFrontFace);
-
         Vector3[] vertices = existingVertices.Concat(addVertices);
+        int numVertices = vertices.Length;
 
         int[] existingTriIndices = mesh.triangles;
         int[] addTriIndices = polygon.GetFaceTriIndicesFan(isFrontFace);
-        
         int[] triIndices = existingTriIndices.Concat(addTriIndices);
         for (int i = existingTriIndices.Length; i < existingTriIndices.Length + addTriIndices.Length; i++) {
             triIndices[i] = triIndices[i] + existingVertices.Length;
@@ -354,12 +364,17 @@ public class QuadCreator
         // Vector3[] existingNormals = mesh.normals;
         // Vector3[] addNormals = polygon.GetFaceVertices(isFrontFace);
         // Vector3[] normals = existingVertices.Concat(addVertices);
-        Vector3[] normals = new Vector3[vertices.Length].Populate(-polygon.normal * (isFrontFace*2 - 1));
+        Vector3[] normals = new Vector3[numVertices].Populate(-polygon.normal * (isFrontFace*2 - 1));
 
         float2[] existingUVs = mesh.uv.ConvertToFloat2Array();
         float2[] addUVs = polygon.GetVertexUVPositions();
-        float2[] uvs = existingUVs.Concat(addUVs); 
-        
+        float2[] uvs = existingUVs.Concat(addUVs);
+
+        // Color[] colors = new Color[numVertices];
+        // for (int i = 0; i < numVertices; i++) {
+        //     colors[i] = Color.Lerp(Color.red, Color.green, vertices[i].y);
+        // }
+
         // new float2[5] 
         // {
         //     new float2(0, 0),
@@ -373,6 +388,7 @@ public class QuadCreator
         mesh.triangles = triIndices;
         mesh.normals = normals;
         mesh.uv = uvs.ConvertToVector2Array(); // .SubArray(0, vertices.Length)
+        // mesh.colors = colors;
 
         meshFilter.mesh = mesh;
     }

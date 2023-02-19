@@ -4,6 +4,7 @@ using UnityEngine;
 
 public static class Materials
 {
+    public static float airDensity = 1.225f;
     public static Type[] materialTypes = {
         // Terrain:
         new Type("Black_Sand",  1400),
@@ -30,7 +31,7 @@ public static class Materials
     }
 }
 
-/* -- MATERIAL DENSITIES: (g/cm^3)
+/* -- MATERIAL DENSITIES: (g/cm^3) (https://www.engineeringtoolbox.com/density-solids-d_1265.html)
 -- Chaff: 0.300
 -- Cedar: 0.580
 -- Oak: 0.750

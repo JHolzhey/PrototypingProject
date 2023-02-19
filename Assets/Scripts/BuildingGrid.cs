@@ -299,6 +299,18 @@ public class BuildingGrid
         }
     }
 
+     public bool SphereCast(TestEntity[] entities, RayInput ray, float radius, out RayCastResult hit) { // TODO: Ray has to be extended on both ends by radius
+        float3 tangent = MathLib.CalcTangentToNormal(ray.direction);
+        float3 tangentOffset = tangent*radius;
+        List<int2> cellCoordsUpper = RasterRay(ray.start + tangentOffset, ray.end + tangentOffset);
+        List<int2> cellCoordsLower = RasterRay(ray.start - tangentOffset, ray.end - tangentOffset);
+        if (cellCoordsUpper.Count != cellCoordsLower.Count) { // TODO: Will a rays of same length and different rotation always have the same cellCount?
+            Debug.Log("No they won't");
+        }
+        hit = new RayCastResult();
+        return false;
+     }
+
     public bool RayCast(TestEntity[] entities, RayInput ray, out RayCastResult hit) {
         List<int2> cellCoords = RasterRay(ray.start, ray.end);
         for (int i = 0; i < cellCoords.Count; i++) {
@@ -366,27 +378,27 @@ struct Cell
     }
 }
 
-public struct RayInput
+public struct RayInput // Future: Call it cast input and hold a ray or capsule collider
 {
-    readonly public float3 start { get; }
-    readonly public float3 end { get; }
-    readonly public float3 direction { get; }
-    readonly public float length { get; }
+    readonly public float3 start;
+    readonly public float3 end;
+    readonly public float3 direction;
+    readonly public float length;
 
-    public RayInput(float3 start, float3 end) {
+    readonly public float3 minPosition;
+    readonly public float3 maxPosition;
+
+    public RayInput(float3 start, float3 end, float3 direction, float length = 100) {
         this.start = start;
         this.end = end;
-        float3 vector = end - start;
-        direction =  math.normalize(vector);
-        length = math.length(vector);
-    }
-
-    public RayInput(float3 start, float3 direction, float length = 100) {
-        this.start = start;
         this.direction = direction;
         this.length = length;
-        end = start + direction*length;
+        MathLib.RayToAABB(start, end, out minPosition, out maxPosition);
     }
+
+    public RayInput(float3 start, float3 end) : this(start, end, math.normalize(end - start), math.length(end - start)) {}
+
+    public RayInput(float3 start, float3 direction, float length = 100) : this(start, start + direction*length, direction, length) {}
 }
 
 public struct RayCastResult

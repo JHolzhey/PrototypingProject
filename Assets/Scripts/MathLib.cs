@@ -110,21 +110,21 @@ public static class MathLib
     }
 
     // Untested but this might work for any capsule orientation:
-    public static bool IsRayAACapsuleIntersecting(float3 rayStart, float3 rayEnd, float3 capsuleSphereBottom, float3 capsuleSphereTop, float capsuleLength, float capsuleRadius) {
+    public static bool IsRayAACapsuleIntersecting(float3 rayStart, float3 rayEnd, float3 capsuleSphereStart, float3 capsuleSphereEnd, float capsuleLength, float capsuleRadius) {
         RayToAABB(rayStart, rayEnd, out float3 rayMinPosition, out float3 rayMaxPosition);
-        CapsuleToAABB(capsuleSphereBottom, capsuleSphereTop, capsuleRadius, out float3 capsuleMinPosition, out float3 capsuleMaxPosition);
+        CapsuleToAABB(capsuleSphereStart, capsuleSphereEnd, capsuleRadius, out float3 capsuleMinPosition, out float3 capsuleMaxPosition);
 
         if (IsAABBsIntersecting(rayMinPosition, rayMaxPosition, capsuleMinPosition, capsuleMaxPosition)) { // This all probably won't work in some cases
             float3 rayVector = rayEnd - rayStart;
             float3 rayDirection = math.normalize(rayVector);
             float rayLength = math.length(rayVector);
 
-            float3 capsuleVector = capsuleSphereTop - capsuleSphereBottom;
+            float3 capsuleVector = capsuleSphereEnd - capsuleSphereStart;
             float3 capsuleVectorDirection = math.normalize(capsuleVector);
 
             // float3 nearestPointOnRay = NearestPointOnRayToLine(rayStart, rayDirection, rayLength, capsuleSphereBottom, capsuleVectorDirection);
 
-            float3 nearestPointOnCapsuleRay = NearestPointOnRayToLine(capsuleSphereBottom, capsuleVectorDirection, capsuleLength, rayStart, rayDirection);
+            float3 nearestPointOnCapsuleRay = NearestPointOnRayToLine(capsuleSphereStart, capsuleVectorDirection, capsuleLength, rayStart, rayDirection);
             // Capsule ray is from sphereBottom to sphereTop positions
 
             bool isIntersecting = IsRaySphereIntersecting(rayStart, rayDirection, rayLength, nearestPointOnCapsuleRay, capsuleRadius, out float3 _);
@@ -149,16 +149,22 @@ public static class MathLib
             && (minPosBox1.z <= maxPosBox2.z && minPosBox2.z <= maxPosBox1.z));
     }
 
-    static void CapsuleToAABB(float3 capsuleSphereBottom, float3 capsuleSphereTop, float capsuleRadius, out float3 minPosition, out float3 maxPosition) {
-        float3 minBtwSpheres = math.min(capsuleSphereBottom, capsuleSphereTop);
-        float3 maxBtwSpheres = math.max(capsuleSphereBottom, capsuleSphereTop);
+    static void CapsuleToAABB(float3 capsuleSphereStart, float3 capsuleSphereEnd, float capsuleRadius, out float3 minPosition, out float3 maxPosition) {
+        float3 minBtwSpheres = math.min(capsuleSphereStart, capsuleSphereEnd);
+        float3 maxBtwSpheres = math.max(capsuleSphereStart, capsuleSphereEnd);
         
         float3 toCapsuleMaxPos = new float3(capsuleRadius);
         minPosition = minBtwSpheres - toCapsuleMaxPos;
         maxPosition = maxBtwSpheres + toCapsuleMaxPos;
     }
 
-    static void RayToAABB(float3 rayStart, float3 rayEnd, out float3 minPosition, out float3 maxPosition) {
+    public static void SphereToAABB(float3 center, float radius, out float3 minPosition, out float3 maxPosition) {
+        float3 toMaxVector = new float3(radius);
+        minPosition = center - toMaxVector;
+        maxPosition = center + toMaxVector;
+    }
+
+    public static void RayToAABB(float3 rayStart, float3 rayEnd, out float3 minPosition, out float3 maxPosition) {
         minPosition = math.min(rayStart, rayEnd);
         maxPosition = math.max(rayStart, rayEnd);
     }
@@ -168,15 +174,17 @@ public static class MathLib
         return new float3(localPos.xyz);
     }
 
-    public static quaternion GetRotationFromNormal(float3 normal) {
-        // generate a tangent to the window normal
-        float3 tangent = math.cross(normal, math.up());
-        if (math.lengthsq(tangent) <= float.Epsilon) {
+    public static float3 CalcTangentToNormal(float3 normal) {
+        float3 tangent = math.cross(normal, math.up()); // Pick world up vector to try to make a tangent to the normal
+        if (math.lengthsq(tangent) <= float.Epsilon) {  // If normal is same direction as up, then use world forward vector to make a tangent instead
             tangent = math.cross(normal,math.forward());
         }
-        // tangent = math.normalize(tangent);
-        float3 bitangent = math.cross(tangent, normal); // upVector for a wall
+        return math.normalize(tangent);
+    }
 
+    public static quaternion CalcRotationFromNormal(float3 normal) {
+        float3 tangent = CalcTangentToNormal(normal);
+        float3 bitangent = math.cross(tangent, normal); // Example: upVector for a wall
         return quaternion.LookRotation(normal, bitangent);
     } 
 }

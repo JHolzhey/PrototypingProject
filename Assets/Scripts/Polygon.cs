@@ -39,7 +39,7 @@ public struct Polygon : ICollider // Clockwise. low-level struct
         float2[] vertexUVPositions = new float2[numVertices];
         
         float3 arbitraryVertexPos = GetVertexPosition(0);
-        quaternion rotation = MathLib.GetRotationFromNormal(normal);
+        quaternion rotation = MathLib.CalcRotationFromNormal(normal);
 
         float4x4 polygonMatrix = new float4x4(rotation, arbitraryVertexPos);
         float4x4 invPolygonMatrix = math.inverse(polygonMatrix);
@@ -98,7 +98,7 @@ public struct Polygon : ICollider // Clockwise. low-level struct
             edges[i].UpdateNormal(normal);
     }
 
-    public void GetAABB(out float3 minPosition, out float3 maxPosition) {
+    public void ToAABB(out float3 minPosition, out float3 maxPosition) {
         maxPosition = new float3(float.MinValue);
         minPosition = new float3(float.MaxValue);
         for (int i = 0; i < numVertices; i++) {
@@ -114,8 +114,8 @@ public struct Polygon : ICollider // Clockwise. low-level struct
         }
         int Entity = entityIndexHack;
         List<int2> rasterCellCoords;
-        if (normal.y < 0.1) { // Polygon is basically vertical so we don't have to raster it as a polygon
-            GetAABB(out float3 minPosition, out float3 maxPosition);
+        if (normal.y < 0.1) { // If this Polygon is mostly vertical we don't have to raster it as a polygon
+            ToAABB(out float3 minPosition, out float3 maxPosition); // TODO: Totally wrong
             rasterCellCoords = grid.RasterRay(minPosition, maxPosition);
             colliderSections = new ColliderSection[rasterCellCoords.Count];
         } else {
@@ -129,7 +129,7 @@ public struct Polygon : ICollider // Clockwise. low-level struct
         }
         for (int i = 0; i < rasterCellCoords.Count; i++) {
             CommonLib.CreatePrimitive(PrimitiveType.Cube, grid.CellCoordsToWorld(rasterCellCoords[i]), new float3(grid.cellSize - 0.2f, 0.1f, grid.cellSize - 0.2f), Color.blue);
-            colliderSections[i] = new ColliderSection(Entity, grid.AddEntityToCell(rasterCellCoords[i], Entity), rasterCellCoords[i]);
+            colliderSections[i] = new ColliderSection(this, Entity, grid.AddEntityToCell(rasterCellCoords[i], Entity), rasterCellCoords[i]);
         }
     }
 
@@ -251,12 +251,13 @@ public interface ICollider
 {
     void AddToGrid(BuildingGrid grid, int entityIndex);
     bool IsRayCastColliding(RayInput ray, out float distanceAlongRay);
+    void ToAABB(out float3 minPosition, out float3 maxPosition);
 
     // bool SphereCast(RayInput ray, out float distanceAlongRay);
 }
 
-// public struct SegmentCollider {
-//     public SegmentCollider() {
+// public struct WallCollider {
+//     public WallCollider() {
 //     }
 // }
 
@@ -273,17 +274,28 @@ public struct SphereCollider : ICollider {
         grid.AddEntityToCell(center, entityIndex);
     }
 
+    public void ToAABB(out float3 minPosition, out float3 maxPosition) {
+        MathLib.SphereToAABB(center, radius, out minPosition, out maxPosition);
+    }
+
     public bool IsRayCastColliding(RayInput ray, out float distanceAlongRay) {
-        return MathLib.IsRaySphereIntersecting(ray.start, ray.direction, ray.length, center, radius, out distanceAlongRay);
+        ToAABB(out float3 minSpherePosition, out float3 maxSpherePosition);
+        if (MathLib.IsAABBsIntersecting(ray.minPosition, ray.maxPosition, minSpherePosition, maxSpherePosition)) {
+            return MathLib.IsRaySphereIntersecting(ray.start, ray.direction, ray.length, center, radius, out distanceAlongRay);
+        }
+        distanceAlongRay = 0;
+        return false;
     }
 }
 
 public struct ColliderSection {
+    internal ICollider collider;
     internal int Entity;
     internal int cellIndex;
     internal int2 cellCoords;
 
-    public ColliderSection(int Entity, int cellIndex, int2 cellCoords) {
+    public ColliderSection(ICollider collider, int Entity, int cellIndex, int2 cellCoords) {
+        this.collider = collider;
         this.Entity = Entity;
         this.cellIndex = cellIndex;
         this.cellCoords = cellCoords;
