@@ -23,4 +23,16 @@ public class GlobalConstants : MonoBehaviour
         MAX_ENTITIES_PER_BUILDING_CELL = maxEntitiesPerBuildingCell;
         BUILDING_CELL_DIMENSIONS = new int2(MAP_DIMENSIONS.x, MAP_DIMENSIONS.z) / BUILDING_CELL_SIZE;
     }
+
+    public const uint UNCOLLIDABLE_MASK	= 0,
+            PLAYER_MASK		    = (1 << 0), // Player has this mask and the BEING_MASK
+            BEING_MASK			= (1 << 1), // Enemies only have this mask
+            OBSTACLE_MASK		= (1 << 2),
+            PROJECTILE_MASK	    = (1 << 3),
+            MELEE_ATTACK_MASK	= (1 << 4),
+            BUILDING_MASK	    = (1 << 5),
+            WALL_MASK  		    = (1 << 6),
+            WALL_END_MASK		= (1 << 7);
+            // PARTICLE_MASK		= (1 << 8),
+            // PROP_MASK			= (1 << 9);
 }

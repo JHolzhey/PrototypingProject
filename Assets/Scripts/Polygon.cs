@@ -118,6 +118,11 @@ public struct Polygon : ICollider // Clockwise. low-level struct
             ToAABB(out float3 minPosition, out float3 maxPosition); // TODO: Totally wrong
             rasterCellCoords = grid.RasterRay(minPosition, maxPosition);
             colliderSections = new ColliderSection[rasterCellCoords.Count];
+            for (int i = 0; i < rasterCellCoords.Count; i++) {
+                CommonLib.CreatePrimitive(PrimitiveType.Cube, grid.CellCoordsToWorld(rasterCellCoords[i]), new float3(grid.cellSize - 0.2f, 0.1f, grid.cellSize - 0.2f), Color.red);
+                uint typeMask = GlobalConstants.BUILDING_MASK + GlobalConstants.WALL_MASK + ((i == 0 || i == rasterCellCoords.Count - 1) ? GlobalConstants.WALL_END_MASK : 0);
+                colliderSections[i] = new ColliderSection(typeMask, this, Entity, grid.AddEntityToCell(rasterCellCoords[i], Entity), rasterCellCoords[i]);
+            }
         } else {
             rasterCellCoords = grid.RasterPolygon(this, out List<int2> bottomEdgeCellCoords, out List<int2> topEdgeCellCoords);
             colliderSections = new ColliderSection[rasterCellCoords.Count];
@@ -126,10 +131,10 @@ public struct Polygon : ICollider // Clockwise. low-level struct
                 CommonLib.CreatePrimitive(PrimitiveType.Sphere, grid.CellCoordsToWorld(bottomEdgeCellCoords[i]) + new float3(0,0.1f*i,0), new float3(0.2f), Color.green);
                 CommonLib.CreatePrimitive(PrimitiveType.Sphere, grid.CellCoordsToWorld(topEdgeCellCoords[(numXCoords - 1) - i]) + new float3(0,0.1f*i,0), new float3(0.2f), Color.red);
             }
-        }
-        for (int i = 0; i < rasterCellCoords.Count; i++) {
+            for (int i = 0; i < rasterCellCoords.Count; i++) {
             CommonLib.CreatePrimitive(PrimitiveType.Cube, grid.CellCoordsToWorld(rasterCellCoords[i]), new float3(grid.cellSize - 0.2f, 0.1f, grid.cellSize - 0.2f), Color.blue);
-            colliderSections[i] = new ColliderSection(this, Entity, grid.AddEntityToCell(rasterCellCoords[i], Entity), rasterCellCoords[i]);
+            colliderSections[i] = new ColliderSection(GlobalConstants.BUILDING_MASK, this, Entity, grid.AddEntityToCell(rasterCellCoords[i], Entity), rasterCellCoords[i]);
+        }
         }
     }
 
@@ -289,15 +294,20 @@ public struct SphereCollider : ICollider {
 }
 
 public struct ColliderSection {
-    internal ICollider collider;
+    internal ICollider collider; // Probably would need a pointer so maybe just use Entity
+
+    uint typeMask; // To speed up physics since we probably won't have access to collider in this struct
     internal int Entity;
-    internal int cellIndex;
+    internal byte cellIndex;
     internal int2 cellCoords;
 
-    public ColliderSection(ICollider collider, int Entity, int cellIndex, int2 cellCoords) {
+    // bool isWallEnd; // Can just check if the collider 
+
+    public ColliderSection(uint typeMask, ICollider collider, int Entity, byte cellIndex, int2 cellCoords) {
         this.collider = collider;
         this.Entity = Entity;
         this.cellIndex = cellIndex;
         this.cellCoords = cellCoords;
+        this.typeMask = typeMask;
     }
 }

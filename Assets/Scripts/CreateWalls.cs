@@ -291,21 +291,90 @@ public class CreateWalls : MonoBehaviour
 
             float3 lineStart = GameObject.Find("RayStart").transform.position; // Debug ray casting:
             float3 lineEnd = GameObject.Find("RayEnd").transform.position;
-            Gizmos.DrawLine(lineStart, lineEnd);
+
+            float cellSize = buildingGrid.cellSize;
+            float size = cellSize - 0.5f;
+            float radius = 0.5f;
+            RayInput ray = new RayInput(lineStart, lineEnd);
+            float3 tangent = MathLib.CalcTangentToNormal(ray.direction);
+            float3 directionOffset = ray.direction*radius;
+            float3 tangentOffset = tangent*radius;
+            float3 startUpper = ray.start + tangentOffset - directionOffset;
+            float3 endUpper = ray.end + tangentOffset + directionOffset;
+            float3 startLower = ray.start - tangentOffset - directionOffset;
+            float3 endLower = ray.end - tangentOffset + directionOffset;
+
+            List<int2> cellCoordsUpper = buildingGrid.RasterRay(startUpper, endUpper);
+            List<int2> cellCoordsLower = buildingGrid.RasterRay(startLower, endLower);
+
+            Gizmos.color = Color.red;
+            Gizmos.DrawLine(startUpper, endUpper);
+            Gizmos.color = Color.blue;
+            Gizmos.DrawLine(startLower, endLower);
+
+            int maxCells = math.max(cellCoordsLower.Count, cellCoordsUpper.Count);
+            int upperIndex = 0;   int lowerIndex = 0; 
+            for (int i = 0; i < maxCells; i++) {
+                float3 upShift = new float3(0,0.1f*i,0);
+                bool isContinueLower = lowerIndex < cellCoordsLower.Count;
+                bool isContinueUpper = upperIndex < cellCoordsUpper.Count;
+
+                if (isContinueLower && isContinueUpper && math.all(cellCoordsUpper[upperIndex] == cellCoordsLower[lowerIndex])) {
+                    Gizmos.color = Color.black;
+                    Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size, 0.2f, size));
+                    upperIndex++;
+                    lowerIndex++;
+                } else {
+                    // Lower work:
+                    if (isContinueLower) { // TODO: Abstract to while loop
+                        Gizmos.color = Color.blue;
+                        Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsLower[lowerIndex]) + upShift, new float3(size, 0.2f, size));
+                        if (isContinueUpper) {
+                            if ((lowerIndex + 1) < cellCoordsLower.Count && math.all(cellCoordsLower[lowerIndex + 1] == cellCoordsUpper[upperIndex])) {
+                                lowerIndex++;
+                                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsLower[lowerIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f));
+                            }
+                        }
+                        lowerIndex++; // TODO: Put in if part
+                    }
+                    // Upper work:
+                    if (isContinueUpper) {
+                        Gizmos.color = Color.red;
+                        Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size, 0.2f, size));
+                        if (isContinueLower) {
+                            if ((upperIndex + 1) < cellCoordsUpper.Count && math.all(cellCoordsUpper[upperIndex + 1] == cellCoordsLower[lowerIndex - 1])) {
+                                upperIndex++;
+                                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f));
+                            }
+                        }
+                        upperIndex++;
+                    }
+                }
+            }
             
-            List<int2> cellCoords = buildingGrid.RasterEdge(lineStart, lineEnd, true);
+            /* Gizmos.color = Color.blue;
+            for (int i = 0; i < cellCoordsUpper.Count; i++) {
+                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[i]) + new float3(0,0.2f,0), new float3(cellSize, 0.2f, cellSize));
+            }
+            Gizmos.color = Color.red;
+            for (int i = 0; i < cellCoordsLower.Count; i++) {
+                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsLower[i]) + new float3(0,0.2f,0), new float3(cellSize-0.5f, 0.2f, cellSize-0.5f));
+            } */
+
+            
+            /* List<int2> cellCoords = buildingGrid.RasterEdge(lineStart, lineEnd, true);
             // print("Count: " + cellCoords.Count);
             for (int i = 0; i < cellCoords.Count; i++) {
                 Gizmos.color = Color.blue;
                 Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize, 0.2f, buildingGrid.cellSize));
-            }
+            } */
 
-            List<int2> cellCoords2 = buildingGrid.RasterRayOld(lineStart, lineEnd);
+            /* List<int2> cellCoords2 = buildingGrid.RasterRayOld(lineStart, lineEnd);
             // print("Count2: " + cellCoords2.Count);
             for (int i = 0; i < cellCoords2.Count; i++) {
                 Gizmos.color = Color.red;
                 Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords2[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize-0.5f, 0.2f, buildingGrid.cellSize-0.5f));
-            }
+            } */
         }
     }
 }

@@ -113,7 +113,7 @@ public static class ProjectileLib
         float area = math.PI * MathLib.Square(radius);
         float dragForce = (constant * area * MathLib.Square(initialSpeed));
         float dragDeceleration = dragForce / mass;
-        return -(dragDeceleration * timeAlive); // TODO: Not sure if this model works
+        return -(dragDeceleration * timeAlive); // TODO: Not sure if this model works, use better integration method?
     }
 }
 

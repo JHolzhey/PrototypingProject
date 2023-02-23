@@ -33,17 +33,17 @@ public class BuildingGrid
         return this.grid[cellCoords.x, cellCoords.y].GetAllEntities();
     }
 
-    public int AddEntityToCell(float3 position, int entity) {
+    public byte AddEntityToCell(float3 position, int entity) {
         int2 cellCoords = WorldToCellCoords(position);
         return AddEntityToCell(cellCoords, entity);
     }
 
-    public int AddEntityToCell(int2 cellCoords, int entity) {
-        int index = this.grid[cellCoords.x, cellCoords.y].AddEntity(entity);
+    public byte AddEntityToCell(int2 cellCoords, int entity) {
+        byte index = this.grid[cellCoords.x, cellCoords.y].AddEntity(entity);
         //printf("Adding entity [%d] to cell: [%d | %d] gives index: [%d]\n", (int)entity, cell_coords.x, cell_coords.y, index);
         return index;
     }
-    public void RemoveEntityFromCell(int2 cellCoords, int indexOfEntity, int entity) {
+    public void RemoveEntityFromCell(int2 cellCoords, byte indexOfEntity, int entity) {
         int entityToBeRemoved = this.grid[cellCoords.x, cellCoords.y].RemoveEntity(indexOfEntity);
         Debug.Assert(entity == entityToBeRemoved);
     }
@@ -300,6 +300,7 @@ public class BuildingGrid
     }
 
      public bool SphereCast(TestEntity[] entities, RayInput ray, float radius, out RayCastResult hit) { // TODO: Ray has to be extended on both ends by radius
+        Debug.Assert(radius*2 < cellSize);
         float3 tangent = MathLib.CalcTangentToNormal(ray.direction);
         float3 tangentOffset = tangent*radius;
         List<int2> cellCoordsUpper = RasterRay(ray.start + tangentOffset, ray.end + tangentOffset);
@@ -337,7 +338,7 @@ public class BuildingGrid
 struct Cell
 {
 	private int []entities;
-	public int numEntities { get; private set; } // How many entities are currently held in the array above
+	public byte numEntities { get; private set; } // How many entities are currently held in the array above
 
     public Cell(int maxEntities) {
         entities = new int[maxEntities];
@@ -352,13 +353,13 @@ struct Cell
         return entities.SubArray(0, numEntities);
     }
 
-	public int RemoveEntity(int entityIndex) { // Moves entity at the end of entity list into removed index
-        Assert.IsTrue((entityIndex >= 0) && (entityIndex < entities.Length) && (this.numEntities - 1 >= 0));
+	public int RemoveEntity(int index) { // Moves entity at the end of entity list into removed index
+        Assert.IsTrue((index >= 0) && (index < entities.Length) && (this.numEntities - 1 >= 0));
         //printf("Entity given: %d. At index: %d.    entity removed: %d.   entity at end: %d\n", e, entity_index, this->entities[entity_index], this->entities[this->num_entities - 1]);
         //printf("Num_entities before removing: %d. Array before removing:\n", this->num_entities);
-        int entityToBeRemoved = this.entities[entityIndex];
+        int entityToBeRemoved = this.entities[index];
         int entityAtEnd = this.entities[this.numEntities - 1];
-        this.entities[entityIndex] = entityAtEnd;
+        this.entities[index] = entityAtEnd;
         //Motion& motion = registry.motions.get(entity_at_end);
         //motion.cell_index = entityIndex;
 
@@ -366,12 +367,12 @@ struct Cell
         //printf("Num_entities after removing: %d\n", this->num_entities);
         return entityToBeRemoved;
     }
-	public int AddEntity(int entity) { // Returns newly placed entity's index
+	public byte AddEntity(int entity) { // Returns newly placed entity's index
         Assert.IsTrue((this.numEntities >= 0) && (this.numEntities < entities.Length)); // "Error or need to add more space to entity list"
         this.entities[this.numEntities] = entity;
         this.numEntities++;
         //printf("Num_entities after adding = %d\n", this->num_entities);
-        return this.numEntities - 1;
+        return (byte)(this.numEntities - 1);
     }
     public void Clear() { // TODO: Should remove entities's index too?
         this.numEntities = 0;

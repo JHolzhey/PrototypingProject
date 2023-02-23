@@ -31,6 +31,18 @@ public static class Materials
     }
 }
 
+// Material toughness correlates to better impact resistance but tensile strength doesn't
+// (https://www.researchgate.net/publication/284985138_Tensile_Strength_versus_Toughness_of_Cement-Based_Materials_against_High-Velocity_Projectile_Impact)
+
+// Material ductility means better resistance to projectile penetration (follows as above)
+// (https://www.ncbi.nlm.nih.gov/pmc/articles/PMC8434575/)
+
+// Material compresive strength is important for projectile penetration resistance
+// (https://ascelibrary.org/doi/full/10.1061/%28ASCE%29ST.1943-541X.0003129)
+
+// "Within the range of effective properties considered, the effective hardness index and elastic modulus"
+// (https://www.sciencedirect.com/science/article/pii/S0734743X19307705)
+
 /* -- MATERIAL DENSITIES: (g/cm^3) (https://www.engineeringtoolbox.com/density-solids-d_1265.html)
 -- Chaff: 0.300
 -- Cedar: 0.580
