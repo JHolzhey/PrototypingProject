@@ -145,12 +145,15 @@ public struct Polygon : ICollider // Clockwise. low-level struct
         colliderSections = null;
     }
 
-    public bool IsRayCastColliding(RayInput ray, out float distanceAlongRay) {
-        return RayCastConvex(ray, out distanceAlongRay, out float3 nearestPointToPlane);
+    public bool IsRayCastColliding(RayInput ray, out RayCastResult hit) {
+        bool isHit = RayCastConvex(ray, out float distanceAlongRay, out float3 nearestPointToPlane);
+        hit = new RayCastResult(-1, normal, distanceAlongRay, nearestPointToPlane);
+        return isHit;
     }
 
     public bool RayCastConvex(RayInput ray, out float distanceAlongRay, out float3 nearestPointToPlane) { // Old: float maxDistance = math.INFINITY
         if (MathLib.IsRayPlaneIntersecting(ray.start, ray.direction, ray.length, normal, originDistance, out distanceAlongRay, out nearestPointToPlane)) {
+
             return IsPointInConvex(nearestPointToPlane, ray.direction);
         }
         return false;
@@ -255,7 +258,7 @@ public struct Edge {
 public interface ICollider
 {
     void AddToGrid(BuildingGrid grid, int entityIndex);
-    bool IsRayCastColliding(RayInput ray, out float distanceAlongRay);
+    bool IsRayCastColliding(RayInput ray, out RayCastResult hit);
     void ToAABB(out float3 minPosition, out float3 maxPosition);
 
     // bool SphereCast(RayInput ray, out float distanceAlongRay);
@@ -283,12 +286,15 @@ public struct SphereCollider : ICollider {
         MathLib.SphereToAABB(center, radius, out minPosition, out maxPosition);
     }
 
-    public bool IsRayCastColliding(RayInput ray, out float distanceAlongRay) {
+    public bool IsRayCastColliding(RayInput ray, out RayCastResult hit) {
         ToAABB(out float3 minSpherePosition, out float3 maxSpherePosition);
+        hit = new RayCastResult(-1, float3.zero, 0, float3.zero);
         if (MathLib.IsAABBsIntersecting(ray.minPosition, ray.maxPosition, minSpherePosition, maxSpherePosition)) {
-            return MathLib.IsRaySphereIntersecting(ray.start, ray.direction, ray.length, center, radius, out distanceAlongRay);
+            if (MathLib.IsRaySphereIntersecting(ray.start, ray.direction, ray.length, center, radius, out float distanceAlongRay, out float3 nearestPointOnRay)) {
+                hit = new RayCastResult(0, math.normalize(nearestPointOnRay - center), distanceAlongRay, nearestPointOnRay); // TODO: This Normal is wrong
+                return true;
+            }
         }
-        distanceAlongRay = 0;
         return false;
     }
 }

@@ -43,6 +43,10 @@ public static class Materials
 // "Within the range of effective properties considered, the effective hardness index and elastic modulus"
 // (https://www.sciencedirect.com/science/article/pii/S0734743X19307705)
 
+// "In addition, it is demonstrated that the uniaxial compressive strength of the building material might be misleading as the identifier of a material 
+// resistance against projectile impact because a significant difference in penetration resistance between materials with comparable compressive strength was found."
+// (https://ascelibrary.org/doi/10.1061/%28ASCE%29MT.1943-5533.0003858)
+
 /* -- MATERIAL DENSITIES: (g/cm^3) (https://www.engineeringtoolbox.com/density-solids-d_1265.html)
 -- Chaff: 0.300
 -- Cedar: 0.580

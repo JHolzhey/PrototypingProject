@@ -62,11 +62,11 @@ public static class ProjectileLib
         return 2 * initialSpeed * math.sin(launchAngle) / g;
     }
 
-    public static float3 CalcLeadTargetPosition(float3 startPoint, float3 targetPoint, float initialSpeed, float3 targetVelocity) {
+    public static float3 CalcLeadTargetPosition(float3 startPoint, float3 targetPoint, float initialSpeed, float3 targetVelocity) { // TODO: Use target accel with Euler's too
         float3 distanceVector = targetPoint - startPoint;
-        float timeToTarget = CalcHorizontalFlightTime(math.length(distanceVector), initialSpeed);
+        float approxTimeToTarget = CalcHorizontalFlightTime(math.length(distanceVector), initialSpeed);
 
-        float3 approxLeadPosition = targetPoint + targetVelocity * timeToTarget;
+        float3 approxLeadPosition = targetPoint + targetVelocity * approxTimeToTarget;
         return approxLeadPosition;
     }
 
@@ -156,7 +156,7 @@ public struct Projectile {
         return true;
     }
 
-    public void Update(float deltaTime, BuildingGrid grid, TestEntity[] entities) {
+    public void Update(float deltaTime, BuildingGrid grid, TestEntity[] entitiesHack) {
         if (timeAlive == -1) return;
         timeAlive += deltaTime;
         prevPosition = position;
@@ -168,14 +168,14 @@ public struct Projectile {
         } else {
             Step(deltaTime);
         }
-        CastCollide(grid, entities);
+        CastCollide(grid, entitiesHack);
         CheckTerrainCollision(deltaTime);
     }
 
-    void CastCollide(BuildingGrid grid,  TestEntity[] entities) {
+    void CastCollide(BuildingGrid grid,  TestEntity[] entitiesHack) {
         if (radius <= radiusThreshold) {
             RayInput ray = new RayInput(prevPosition, position);
-            if (grid.RayCast(entities, ray, out RayCastResult hit)) {
+            if (grid.RayCast(entitiesHack, ray, out RayCastResult hit)) {
                 // float penetration = position - (prevPosition + ray.direction * hit.distance);
                 position = hit.hitPoint; // MathLib.ResolveSpherePlanePenetration(position, ray.direction, hit.normal, penetration);
                 timeAlive = -1;

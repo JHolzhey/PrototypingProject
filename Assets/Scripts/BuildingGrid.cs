@@ -57,7 +57,7 @@ public class BuildingGrid
         }
     }
 
-    public float3 CellCoordsToWorld(int2 cellCoords) {
+    public float3 CellCoordsToWorld(int2 cellCoords) { // Returns the center of cell, not bottom left
         return bottomLeftWorld + (new float3(cellCoords.x+0.5f, 0, cellCoords.y+0.5f) * cellSize);
     }
 
@@ -299,20 +299,69 @@ public class BuildingGrid
         }
     }
 
-     public bool SphereCast(TestEntity[] entities, RayInput ray, float radius, out RayCastResult hit) { // TODO: Ray has to be extended on both ends by radius
-        Debug.Assert(radius*2 < cellSize);
-        float3 tangent = MathLib.CalcTangentToNormal(ray.direction);
-        float3 tangentOffset = tangent*radius;
-        List<int2> cellCoordsUpper = RasterRay(ray.start + tangentOffset, ray.end + tangentOffset);
-        List<int2> cellCoordsLower = RasterRay(ray.start - tangentOffset, ray.end - tangentOffset);
-        if (cellCoordsUpper.Count != cellCoordsLower.Count) { // TODO: Will a rays of same length and different rotation always have the same cellCount?
-            Debug.Log("No they won't");
+    public bool SphereCastAll(TestEntity[] entities, RayInput ray, float radius, out RayCastResult hit) { // TODO: Ray has to be extended on both ends by radius
+        Debug.Assert(radius*2 <= cellSize);
+        float size = cellSize - 0.5f;
+
+        float3 directionOffset = ray.direction*(radius*2);
+        float3 tangentOffset = MathLib.CalcTangentToNormal(ray.direction)*radius;
+        float3 startUpper = ray.start + tangentOffset - directionOffset;   float3 endUpper = ray.end + tangentOffset + directionOffset;
+        float3 startLower = ray.start - tangentOffset - directionOffset;   float3 endLower = ray.end - tangentOffset + directionOffset;
+
+        List<int2> upperCellCoords = RasterRay(startUpper, endUpper);
+        List<int2> lowerCellCoords = RasterRay(startLower, endLower);
+
+        int maxCells = math.max(lowerCellCoords.Count, upperCellCoords.Count);
+        int upperIndex = 0;   int lowerIndex = 0; 
+        for (int i = 0; i < maxCells; i++) {
+            float3 upShift = new float3(0,0.1f*i,0);
+            bool isLowerContinue = lowerIndex < lowerCellCoords.Count;
+            bool isUpperContinue = upperIndex < upperCellCoords.Count;
+
+            if (isLowerContinue && isUpperContinue && math.all(upperCellCoords[upperIndex] == lowerCellCoords[lowerIndex])) {
+                CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(upperCellCoords[upperIndex]) + upShift, new float3(size, 0.2f, size), Color.black, new Quaternion(), 1.0f);
+                // Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size, 0.2f, size));
+                // Check
+                
+                upperIndex++;
+                lowerIndex++;
+            } else {
+                // Lower work:
+                if (isLowerContinue) {
+                    CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(lowerCellCoords[lowerIndex]) + upShift, new float3(size, 0.2f, size), Color.blue, new Quaternion(), 1.0f);
+                    // Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsLower[lowerIndex]) + upShift, new float3(size, 0.2f, size));
+                    // Check
+                    
+                    if (isUpperContinue && ((lowerIndex + 1) < lowerCellCoords.Count) && math.all(lowerCellCoords[lowerIndex + 1] == upperCellCoords[upperIndex])) {
+                        lowerIndex++; // Don't check sphere cast colliding here
+                        CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(lowerCellCoords[lowerIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f), Color.blue, new Quaternion(), 1.0f);
+                        // Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsLower[lowerIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f));
+                    }
+                    lowerIndex++; // TODO: Put in if part
+                }
+                // Upper work:
+                if (isUpperContinue) {
+                    CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(upperCellCoords[upperIndex]) + upShift, new float3(size, 0.2f, size), Color.red, new Quaternion(), 1.0f);
+                    // Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size, 0.2f, size));
+                    // Check
+                    
+                    if (isLowerContinue && ((upperIndex + 1) < upperCellCoords.Count) && math.all(upperCellCoords[upperIndex + 1] == lowerCellCoords[lowerIndex - 1])) { // lowerIndex - 1 because incremented earlier
+                        upperIndex++; // Don't check sphere cast colliding here
+                        CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(upperCellCoords[upperIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f), Color.red, new Quaternion(), 1.0f);
+                        // Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f));   
+                    }
+                    upperIndex++;
+                }
+            }
         }
+
+        
         hit = new RayCastResult();
         return false;
-     }
+    }
 
-    public bool RayCast(TestEntity[] entities, RayInput ray, out RayCastResult hit) {
+    /* public bool RayCastAll(TestEntity[] entitiesHack, RayInput ray, out List<RayCastResult> hits) {
+        hits = new List<RayCastResult>();
         List<int2> cellCoords = RasterRay(ray.start, ray.end);
         for (int i = 0; i < cellCoords.Count; i++) {
             int[] cellEntities = GetCellEntities(cellCoords[i]);
@@ -321,7 +370,7 @@ public class BuildingGrid
             for (int j = 0; j < cellEntities.Length; j++) { // Must go through all entities in cell and choose hit that has smallest distanceAlongRay
                 int entityIndex = cellEntities[j];
 
-                if (entities[entityIndex].collider.IsRayCastColliding(ray, out float distanceAlongRay) && distanceAlongRay < closestDistanceAlongRay) {
+                if (entitiesHack[entityIndex].collider.IsRayCastColliding(ray, out float distanceAlongRay) && distanceAlongRay < closestDistanceAlongRay) {
                     closestHitIndex = entityIndex;  closestDistanceAlongRay = distanceAlongRay;
                 }
             }
@@ -331,6 +380,33 @@ public class BuildingGrid
             }
         }
         hit = new RayCastResult();
+        return false;
+    } */
+
+    public bool RayCast(TestEntity[] entitiesHack, RayInput ray, out RayCastResult nearestHit, bool collectAllHits = false) { // Make RayCastResult an array
+        nearestHit = new RayCastResult(-1, float3.zero, math.INFINITY, float3.zero);
+
+        List<int2> cellCoords = RasterRay(ray.start, ray.end);
+        for (int i = 0; i < cellCoords.Count; i++) {
+            int[] cellEntities = GetCellEntities(cellCoords[i]);
+
+            int closestHitIndex = -1;
+            float closestDistanceAlongRay = nearestHit.distance;
+
+            // List<RayCastResult> hits = new List<RayCastResult> // TODO
+            for (int j = 0; j < cellEntities.Length; j++) { // Must go through all entities in cell and choose hit that has smallest distanceAlongRay
+                int entityIndex = cellEntities[j];
+
+                if (entitiesHack[entityIndex].collider.IsRayCastColliding(ray, out nearestHit) && nearestHit.distance < closestDistanceAlongRay) {
+                    closestHitIndex = entityIndex;
+                    closestDistanceAlongRay = nearestHit.distance;
+                }
+            }
+            if (closestHitIndex != -1) { // Means we hit something
+                nearestHit.hitEntity = closestHitIndex;
+                return true; // No need to check next cells since this must be the closest hit
+            }
+        }
         return false;
     }
 }
@@ -379,7 +455,8 @@ struct Cell
     }
 }
 
-public struct RayInput // Future: Call it cast input and hold a ray or capsule collider
+// Or have namespace called Cast and just do Cast.Ray, Cast.Sphere
+public struct RayInput // Future: Call it CastInput and hold a ray or capsule collider
 {
     readonly public float3 start;
     readonly public float3 end;
@@ -404,7 +481,7 @@ public struct RayInput // Future: Call it cast input and hold a ray or capsule c
 
 public struct RayCastResult
 {
-    public int hitEntity { get; private set; }
+    public int hitEntity { get; set; }
     public float3 normal { get; private set; }
     public float distance { get; private set; }
     public float3 hitPoint { get; private set; }

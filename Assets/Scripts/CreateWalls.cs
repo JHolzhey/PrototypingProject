@@ -198,8 +198,9 @@ public class CreateWalls : MonoBehaviour
         }
     }
 
-    void TestRayCast(RayInput ray)
+    void TestRayCast(RayInput ray) 
     {
+        // SUPER OLD I THINK:
         for (int i = 0; i < selectedPolygon.numVertices; i++) {
             polygonVertexHandles[i].transform.position = float3.zero; // Deselect polygon
         }
@@ -216,6 +217,7 @@ public class CreateWalls : MonoBehaviour
             selectedPolygon = new Polygon();
         }
 
+        // Test capsule ray intersection
         GameObject capsule = GameObject.Find("Capsule");
         float capsuleRadius = capsule.GetComponent<Renderer>().bounds.size.x/2;
         float capsuleHeight = capsule.GetComponent<Renderer>().bounds.size.y - capsuleRadius*2;
@@ -230,41 +232,26 @@ public class CreateWalls : MonoBehaviour
     }
 
     void TestEntitiesRayCast(RayInput ray) {
+        // SphereCast:
+        float3 sphereCastStart = GameObject.Find("RayStart").transform.position;
+        float3 sphereCastEnd = GameObject.Find("RayEnd").transform.position;
+        RayInput sphereCastRay = new RayInput(sphereCastStart, sphereCastEnd);
+        buildingGrid.SphereCastAll(entities, sphereCastRay, 0.5f, out RayCastResult sphereCastHit);
+
+        // RayCast:
         entities[vertexSphereHoveringIndex].obj.transform.localScale = new float3(0.1);
         entities[vertexSphereHoveringIndex].obj.GetComponent<Renderer>().material.color = Color.white;
         entities[polygonHoveringIndex].obj.GetComponent<Renderer>().material.color = Color.white;
 
-        List<int2> cellCoords = buildingGrid.RasterRay(ray);
-        for (int i = 0; i < cellCoords.Count; i++) {
-            int[] cellEntities = buildingGrid.GetCellEntities(cellCoords[i]);
-            int closestHitIndex = -1;  float closestHitAlongRay = math.INFINITY;
-
-            for (int j = 0; j < cellEntities.Length; j++) { // Must go through all entities in cell and choose hit that has smallest distanceAlongRay
-                int entityIndex = cellEntities[j];
-
-                float distanceAlongRay;
-                bool isHit = entities[entityIndex].collider.IsRayCastColliding(ray, out distanceAlongRay);
-                // if (entities[entityIndex].type == EntityType.Polygon) {
-                //     isHit = entities[entityIndex].collider.RayCast(ray, out distanceAlongRay);
-                // } else {
-                //     float3 sphereCenter = entities[entityIndex].vertexPosition;
-                //     isHit = MathLib.IsRaySphereIntersecting(ray.start, ray.direction, rayLength, sphereCenter, sphereRadius, out distanceAlongRay);
-                // }
-
-                if (isHit && distanceAlongRay < closestHitAlongRay) {
-                    closestHitIndex = entityIndex;  closestHitAlongRay = distanceAlongRay;
-                }
-            }
-            if (closestHitIndex != -1) { // Means we hit something
-                if (entities[closestHitIndex].type == EntityType.Polygon) {
-                    polygonHoveringIndex = closestHitIndex;
-                    entities[polygonHoveringIndex].obj.GetComponent<Renderer>().material.color = Color.red;
-                } else {
-                    vertexSphereHoveringIndex = closestHitIndex;
-                    entities[vertexSphereHoveringIndex].obj.GetComponent<Renderer>().material.color = Color.red;
-                    entities[vertexSphereHoveringIndex].obj.transform.localScale = new float3(0.2);
-                }
-                break; // No need to check next cells since this must be the closest hit
+        if (buildingGrid.RayCast(entities, ray, out RayCastResult hit)) { // Means we hit something
+        int hitEntity = hit.hitEntity;
+            if (entities[hitEntity].type == EntityType.Polygon) {
+                polygonHoveringIndex = hitEntity;
+                entities[polygonHoveringIndex].obj.GetComponent<Renderer>().material.color = Color.red;
+            } else {
+                vertexSphereHoveringIndex = hitEntity;
+                entities[vertexSphereHoveringIndex].obj.GetComponent<Renderer>().material.color = Color.red;
+                entities[vertexSphereHoveringIndex].obj.transform.localScale = new float3(0.2);
             }
         }
     }
@@ -289,7 +276,8 @@ public class CreateWalls : MonoBehaviour
                 }
             }
 
-            float3 lineStart = GameObject.Find("RayStart").transform.position; // Debug ray casting:
+             // Debug sphere casting:
+            float3 lineStart = GameObject.Find("RayStart").transform.position;
             float3 lineEnd = GameObject.Find("RayEnd").transform.position;
 
             float cellSize = buildingGrid.cellSize;
@@ -297,12 +285,10 @@ public class CreateWalls : MonoBehaviour
             float radius = 0.5f;
             RayInput ray = new RayInput(lineStart, lineEnd);
             float3 tangent = MathLib.CalcTangentToNormal(ray.direction);
-            float3 directionOffset = ray.direction*radius;
+            float3 directionOffset = ray.direction*(2*radius);
             float3 tangentOffset = tangent*radius;
-            float3 startUpper = ray.start + tangentOffset - directionOffset;
-            float3 endUpper = ray.end + tangentOffset + directionOffset;
-            float3 startLower = ray.start - tangentOffset - directionOffset;
-            float3 endLower = ray.end - tangentOffset + directionOffset;
+            float3 startUpper = ray.start + tangentOffset - directionOffset;   float3 endUpper = ray.end + tangentOffset + directionOffset;
+            float3 startLower = ray.start - tangentOffset - directionOffset;   float3 endLower = ray.end - tangentOffset + directionOffset;
 
             List<int2> cellCoordsUpper = buildingGrid.RasterRay(startUpper, endUpper);
             List<int2> cellCoordsLower = buildingGrid.RasterRay(startLower, endLower);
@@ -329,11 +315,9 @@ public class CreateWalls : MonoBehaviour
                     if (isContinueLower) { // TODO: Abstract to while loop
                         Gizmos.color = Color.blue;
                         Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsLower[lowerIndex]) + upShift, new float3(size, 0.2f, size));
-                        if (isContinueUpper) {
-                            if ((lowerIndex + 1) < cellCoordsLower.Count && math.all(cellCoordsLower[lowerIndex + 1] == cellCoordsUpper[upperIndex])) {
-                                lowerIndex++;
-                                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsLower[lowerIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f));
-                            }
+                        if (isContinueUpper && ((lowerIndex + 1) < cellCoordsLower.Count) && math.all(cellCoordsLower[lowerIndex + 1] == cellCoordsUpper[upperIndex])) {
+                            lowerIndex++; // Don't test here
+                            Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsLower[lowerIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f));
                         }
                         lowerIndex++; // TODO: Put in if part
                     }
@@ -341,17 +325,16 @@ public class CreateWalls : MonoBehaviour
                     if (isContinueUpper) {
                         Gizmos.color = Color.red;
                         Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size, 0.2f, size));
-                        if (isContinueLower) {
-                            if ((upperIndex + 1) < cellCoordsUpper.Count && math.all(cellCoordsUpper[upperIndex + 1] == cellCoordsLower[lowerIndex - 1])) {
-                                upperIndex++;
-                                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f));
-                            }
+                        if (isContinueLower && ((upperIndex + 1) < cellCoordsUpper.Count) && math.all(cellCoordsUpper[upperIndex + 1] == cellCoordsLower[lowerIndex - 1])) {
+                            upperIndex++; // Don't test here
+                            Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f));
                         }
                         upperIndex++;
                     }
                 }
             }
             
+            // Debug ray cast:
             /* Gizmos.color = Color.blue;
             for (int i = 0; i < cellCoordsUpper.Count; i++) {
                 Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[i]) + new float3(0,0.2f,0), new float3(cellSize, 0.2f, cellSize));
