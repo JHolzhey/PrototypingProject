@@ -6,7 +6,7 @@ using UnityEngine.Assertions;
 
 public static class ProjectileLib
 {
-    public static float g = GlobalConstants.GRAVITY;
+    private static float g = GlobalConstants.GRAVITY;
     public static float ComputeLaunchAngle(float horizontalDistance, float distanceY, float intialSpeed, out bool isInRange) { // Helper method for function below
         float distanceTimesG = g * horizontalDistance; // Micro-optimizations
         float initialSpeedSqr = intialSpeed*intialSpeed;

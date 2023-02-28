@@ -100,9 +100,9 @@ public class CreateWalls : MonoBehaviour
             SphereCollider sphereCollider = new SphereCollider(verticesTest[i], 0.1f);
             entities[i] = new TestEntity(EntityType.Vertex, sphereCollider, vertexSphere);
         }
-        entities[totalVertices] = new TestEntity(EntityType.Polygon, testPolygon1, TestDrawPolygon(testPolygon1));
-        entities[totalVertices + 1] = new TestEntity(EntityType.Polygon, testPolygon2, TestDrawPolygon(testPolygon2));
-        entities[totalVertices + 2] = new TestEntity(EntityType.Polygon, testPolygon3, TestDrawPolygon(testPolygon3));
+        entities[totalVertices] = new TestEntity(EntityType.Surface, testPolygon1, TestDrawPolygon(testPolygon1));
+        entities[totalVertices + 1] = new TestEntity(EntityType.Surface, testPolygon2, TestDrawPolygon(testPolygon2));
+        entities[totalVertices + 2] = new TestEntity(EntityType.Surface, testPolygon3, TestDrawPolygon(testPolygon3));
         float2[] uvPosition = testPolygon1.GetVertexUVPositions();
 
         for (int entityIndex = 0; entityIndex < entities.Length; entityIndex++) {
@@ -237,6 +237,7 @@ public class CreateWalls : MonoBehaviour
         float3 sphereCastEnd = GameObject.Find("RayEnd").transform.position;
         RayInput sphereCastRay = new RayInput(sphereCastStart, sphereCastEnd);
         buildingGrid.SphereCastAll(entities, sphereCastRay, 0.5f, out RayCastResult sphereCastHit);
+        
 
         // RayCast:
         entities[vertexSphereHoveringIndex].obj.transform.localScale = new float3(0.1);
@@ -245,7 +246,7 @@ public class CreateWalls : MonoBehaviour
 
         if (buildingGrid.RayCast(entities, ray, out RayCastResult hit)) { // Means we hit something
         int hitEntity = hit.hitEntity;
-            if (entities[hitEntity].type == EntityType.Polygon) {
+            if (entities[hitEntity].type == EntityType.Surface) {
                 polygonHoveringIndex = hitEntity;
                 entities[polygonHoveringIndex].obj.GetComponent<Renderer>().material.color = Color.red;
             } else {
@@ -360,14 +361,6 @@ public class CreateWalls : MonoBehaviour
             } */
         }
     }
-}
-
-
-public enum EntityType
-{
-    // items of the enum
-    Polygon,
-    Vertex,
 }
 
 public struct TestEntity

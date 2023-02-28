@@ -149,7 +149,7 @@ public static class MathLib
             && (minPosBox1.z <= maxPosBox2.z && minPosBox2.z <= maxPosBox1.z));
     }
 
-    static void CapsuleToAABB(float3 capsuleSphereStart, float3 capsuleSphereEnd, float capsuleRadius, out float3 minPosition, out float3 maxPosition) {
+    public static void CapsuleToAABB(float3 capsuleSphereStart, float3 capsuleSphereEnd, float capsuleRadius, out float3 minPosition, out float3 maxPosition) {
         float3 minBtwSpheres = math.min(capsuleSphereStart, capsuleSphereEnd);
         float3 maxBtwSpheres = math.max(capsuleSphereStart, capsuleSphereEnd);
         

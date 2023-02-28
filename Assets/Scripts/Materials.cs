@@ -47,6 +47,9 @@ public static class Materials
 // resistance against projectile impact because a significant difference in penetration resistance between materials with comparable compressive strength was found."
 // (https://ascelibrary.org/doi/10.1061/%28ASCE%29MT.1943-5533.0003858)
 
+// "Because of their weight stone and wooden structures are weak in tension, so applyign a sideways force on them could first cause cracks,
+// which could be exploited to cause the walls to crumble
+
 /* -- MATERIAL DENSITIES: (g/cm^3) (https://www.engineeringtoolbox.com/density-solids-d_1265.html)
 -- Chaff: 0.300
 -- Cedar: 0.580

@@ -23,16 +23,23 @@ public class GlobalConstants : MonoBehaviour
         MAX_ENTITIES_PER_BUILDING_CELL = maxEntitiesPerBuildingCell;
         BUILDING_CELL_DIMENSIONS = new int2(MAP_DIMENSIONS.x, MAP_DIMENSIONS.z) / BUILDING_CELL_SIZE;
     }
+}
 
-    public const uint UNCOLLIDABLE_MASK	= 0,
-            PLAYER_MASK		    = (1 << 0), // Player has this mask and the BEING_MASK
-            BEING_MASK			= (1 << 1), // Enemies only have this mask
-            OBSTACLE_MASK		= (1 << 2),
-            PROJECTILE_MASK	    = (1 << 3),
-            MELEE_ATTACK_MASK	= (1 << 4),
-            BUILDING_MASK	    = (1 << 5),
-            WALL_MASK  		    = (1 << 6),
-            WALL_END_MASK		= (1 << 7);
-            // PARTICLE_MASK		= (1 << 8),
-            // PROP_MASK			= (1 << 9);
+[System.Flags]
+public enum EntityType
+{
+    None = 0,
+    Being = 1,
+    Soldier = Being << 1,
+    Player = Soldier << 1,
+    Mount = Player << 1,
+    Surface = Mount << 1, // All building surfaces; walls, floors, roofs
+    Wall = Surface << 1,
+    WallTerrain = Wall << 1,
+    Floor = WallTerrain << 1,
+    Platform = Floor << 1,
+    Projectile = Platform << 1,
+    ProjectileSphere = Projectile << 1,
+    MeleeAttack = ProjectileSphere << 1,
+    Vertex = MeleeAttack << 1,
 }

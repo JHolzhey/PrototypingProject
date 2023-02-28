@@ -311,6 +311,8 @@ public class BuildingGrid
         List<int2> upperCellCoords = RasterRay(startUpper, endUpper);
         List<int2> lowerCellCoords = RasterRay(startLower, endLower);
 
+        List<RayCastResult> hits = new List<RayCastResult>();
+
         int maxCells = math.max(lowerCellCoords.Count, upperCellCoords.Count);
         int upperIndex = 0;   int lowerIndex = 0; 
         for (int i = 0; i < maxCells; i++) {
@@ -334,7 +336,7 @@ public class BuildingGrid
                     
                     if (isUpperContinue && ((lowerIndex + 1) < lowerCellCoords.Count) && math.all(lowerCellCoords[lowerIndex + 1] == upperCellCoords[upperIndex])) {
                         lowerIndex++; // Don't check sphere cast colliding here
-                        CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(lowerCellCoords[lowerIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f), Color.blue, new Quaternion(), 1.0f);
+                        CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(lowerCellCoords[lowerIndex]) + upShift, new float3(size-0.3f, 0.4f, size-0.3f), Color.blue, new Quaternion(), 1.0f);
                         // Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsLower[lowerIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f));
                     }
                     lowerIndex++; // TODO: Put in if part
@@ -347,7 +349,7 @@ public class BuildingGrid
                     
                     if (isLowerContinue && ((upperIndex + 1) < upperCellCoords.Count) && math.all(upperCellCoords[upperIndex + 1] == lowerCellCoords[lowerIndex - 1])) { // lowerIndex - 1 because incremented earlier
                         upperIndex++; // Don't check sphere cast colliding here
-                        CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(upperCellCoords[upperIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f), Color.red, new Quaternion(), 1.0f);
+                        CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(upperCellCoords[upperIndex]) + upShift, new float3(size-0.3f, 0.4f, size-0.3f), Color.red, new Quaternion(), 1.0f);
                         // Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f));   
                     }
                     upperIndex++;
@@ -382,6 +384,17 @@ public class BuildingGrid
         hit = new RayCastResult();
         return false;
     } */
+
+    public void RayCastCell(TestEntity[] entitiesHack, RayInput ray, int2 cellCoords, ref List<RayCastResult> hits) {
+        int[] cellEntities = GetCellEntities(cellCoords);
+        for (int j = 0; j < cellEntities.Length; j++) {
+            int entityIndex = cellEntities[j];
+
+            if (entitiesHack[entityIndex].collider.IsRayCastColliding(ray, out RayCastResult hit)) {
+                hits.Add(hit);
+            }
+        }
+    }
 
     public bool RayCast(TestEntity[] entitiesHack, RayInput ray, out RayCastResult nearestHit, bool collectAllHits = false) { // Make RayCastResult an array
         nearestHit = new RayCastResult(-1, float3.zero, math.INFINITY, float3.zero);
@@ -479,9 +492,58 @@ public struct RayInput // Future: Call it CastInput and hold a ray or capsule co
     public RayInput(float3 start, float3 direction, float length = 100) : this(start, start + direction*length, direction, length) {}
 }
 
+public struct RayInput2
+{
+    CapsuleCollider capsuleCollider;
+
+    public RayInput2(float3 start, float3 end, float radius = 0) {
+        capsuleCollider = new CapsuleCollider(start, end, radius);
+    }
+    public RayInput2(float3 start, float3 direction, float length = 100, float radius = 0) {
+        capsuleCollider = new CapsuleCollider(start, direction, length, radius);
+    }
+}
+
+public struct CapsuleCollider : ICollider // Future: Call it CastInput and hold a ray or capsule collider
+{
+    readonly public float3 start;
+    readonly public float3 end;
+    readonly public float3 direction;
+    readonly public float length;
+    public float radius;
+
+    readonly public float3 minPosition;
+    readonly public float3 maxPosition;
+
+    public CapsuleCollider(float3 start, float3 end, float radius = 0) : this(start, end, math.normalize(end - start), math.length(end - start), radius) {}
+    public CapsuleCollider(float3 start, float3 direction, float length = 100, float radius = 0) : this(start, start + direction*length, direction, length, radius) {}
+    public CapsuleCollider(float3 start, float3 end, float3 direction, float length, float radius) {
+        this.start = start;
+        this.end = end;
+        this.direction = direction;
+        this.length = length;
+        this.radius = radius;
+        MathLib.CapsuleToAABB(start, end, radius, out minPosition, out maxPosition);
+        // MathLib.RayToAABB(start, end, out minPosition, out maxPosition);
+    }
+
+    public void AddToGrid(BuildingGrid grid, int entityIndex) {
+        // grid.AddEntityToCell(center, entityIndex);
+    }
+
+    public void ToAABB(out float3 minPosition, out float3 maxPosition) {
+        MathLib.CapsuleToAABB(start, end, radius, out minPosition, out maxPosition);
+    }
+
+    public bool IsRayCastColliding(RayInput ray, out RayCastResult hit) {
+        hit = new RayCastResult();
+        return false;
+    }
+}
+
 public struct RayCastResult
 {
-    public int hitEntity { get; set; }
+    public int hitEntity { get; set; } // Should be private set
     public float3 normal { get; private set; }
     public float distance { get; private set; }
     public float3 hitPoint { get; private set; }
