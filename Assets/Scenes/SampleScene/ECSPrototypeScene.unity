@@ -255,4 +255,4 @@ MonoBehaviour:
     y: 50
   numSoldiersToSpawn: 100
   soldierPrefab: {fileID: 5424640711848674093, guid: 3d115d661569f4443b245d8e012d7cd6, type: 3}
-  randomSeed: 10
+  randomSeed: 100

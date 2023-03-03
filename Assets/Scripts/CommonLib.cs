@@ -157,4 +157,9 @@ public static class TerrainExtensions
         
         return new float2(normalizedCoords.x, normalizedCoords.z);
     }
+
+    /* public static float2 PlaceSomethingOverTerrain(this Terrain terrain, float3 position) {
+        TerrainData terrainData = terrain.terrainData;
+        int heightmapResolution = terrain.terrainData.heightmapResolution;
+    } */
 }

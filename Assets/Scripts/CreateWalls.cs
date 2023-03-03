@@ -221,10 +221,10 @@ public class CreateWalls : MonoBehaviour
         GameObject capsule = GameObject.Find("Capsule");
         float capsuleRadius = capsule.GetComponent<Renderer>().bounds.size.x/2;
         float capsuleHeight = capsule.GetComponent<Renderer>().bounds.size.y - capsuleRadius*2;
-        float3 capsuleSphereStart = capsule.transform.position - new Vector3(0, capsuleHeight/2, 0);
-        float3 capsuleSphereEnd = capsule.transform.position + new Vector3(0, capsuleHeight/2, 0);
+        float3 capsuleStart = capsule.transform.position - new Vector3(0, capsuleHeight/2, 0);
+        float3 capsuleEnd = capsule.transform.position + new Vector3(0, capsuleHeight/2, 0);
 
-        if (MathLib.IsRayAACapsuleIntersecting(ray.start, ray.end, capsuleSphereStart, capsuleSphereEnd, capsuleHeight, capsuleRadius)) {
+        if (MathLib.IsRayAACapsuleIntersecting(ray.start, ray.end, ray.length, capsuleStart, capsuleEnd, capsuleHeight, capsuleRadius)) {
             // print("Hit capsule");
         } else {
             // print("Missed capsule");
@@ -353,12 +353,14 @@ public class CreateWalls : MonoBehaviour
                 Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize, 0.2f, buildingGrid.cellSize));
             } */
 
-            /* List<int2> cellCoords2 = buildingGrid.RasterRayOld(lineStart, lineEnd);
-            // print("Count2: " + cellCoords2.Count);
-            for (int i = 0; i < cellCoords2.Count; i++) {
-                Gizmos.color = Color.red;
-                Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoords2[i]) + new float3(0,0.2f,0), new float3(buildingGrid.cellSize-0.5f, 0.2f, buildingGrid.cellSize-0.5f));
-            } */
+            float3 lineStart2 = GameObject.Find("RayStart2").transform.position;
+            float3 lineEnd2 = GameObject.Find("RayEnd2").transform.position;
+            List<float3> cellCoords3 = new List<float3>();
+            buildingGrid.RasterRayTest(lineStart2, lineEnd2, ref cellCoords3);
+            // print("Count2: " + cellCoords3.Count);
+            for (int i = 0; i < cellCoords3.Count; i++) {
+                CommonLib.CreatePrimitive(PrimitiveType.Cube, cellCoords3[i] + new float3(0,0.05f,0), new float3(0.1f, 0.1f, 0.1f), Color.red, new Quaternion(), 1.0f);
+            }
         }
     }
 }

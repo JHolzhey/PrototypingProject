@@ -35,8 +35,8 @@ public static class MathLib
         return IsSpheresIntersecting(sphereCenter, sphereRadius, nearestPointOnRay);
     }
     // Untested:
-    public static bool IsPointCapsuleIntersecting(float3 point, float3 capsuleSphereBottom, float3 capsuleSphereTop, float capsuleLength, float capsuleRadius, out float3 nearestPointOnCapsuleRay) {
-        return IsRaySphereIntersecting(capsuleSphereBottom, math.normalize(capsuleSphereTop - capsuleSphereBottom), capsuleLength, point, capsuleRadius, out nearestPointOnCapsuleRay);
+    public static bool IsPointCapsuleIntersecting(float3 point, float3 capsuleSphereBottom, float3 capsuleSphereTop, float capsuleLength, float capsuleRadius, out float3 nearestPointOnCapsuleSeg) {
+        return IsRaySphereIntersecting(capsuleSphereBottom, math.normalize(capsuleSphereTop - capsuleSphereBottom), capsuleLength, point, capsuleRadius, out nearestPointOnCapsuleSeg);
     }
 
     public static bool IsSpherePlaneIntersecting(float3 sphereCenter, float sphereRadius, float3 planeNormal, float3 pointOnPlane, out float penetration) {
@@ -109,30 +109,33 @@ public static class MathLib
         return math.dot(crossNormal, -arbitraryPoint1ToPoint2Vector);
     }
 
+    public static bool IsCapsulesIntersecting(float3 start1, float3 end1, float length1, float radius1, float3 start2, float3 end2, float length2, float radius2) {
+        return IsRayAACapsuleIntersecting(start1, end1, length1, start2, end2, length2, radius1 + radius2);
+    }
+
     // Untested but this might work for any capsule orientation:
-    public static bool IsRayAACapsuleIntersecting(float3 rayStart, float3 rayEnd, float3 capsuleSphereStart, float3 capsuleSphereEnd, float capsuleLength, float capsuleRadius) {
+    public static bool IsRayAACapsuleIntersecting(float3 rayStart, float3 rayEnd, float rayLength, float3 capsuleStart, float3 capsuleEnd, float capsuleLength, float capsuleRadius) {
         RayToAABB(rayStart, rayEnd, out float3 rayMinPosition, out float3 rayMaxPosition);
-        CapsuleToAABB(capsuleSphereStart, capsuleSphereEnd, capsuleRadius, out float3 capsuleMinPosition, out float3 capsuleMaxPosition);
+        CapsuleToAABB(capsuleStart, capsuleEnd, capsuleRadius, out float3 capsuleMinPosition, out float3 capsuleMaxPosition);
 
         if (IsAABBsIntersecting(rayMinPosition, rayMaxPosition, capsuleMinPosition, capsuleMaxPosition)) { // This all probably won't work in some cases
             float3 rayVector = rayEnd - rayStart;
             float3 rayDirection = math.normalize(rayVector);
-            float rayLength = math.length(rayVector);
 
-            float3 capsuleVector = capsuleSphereEnd - capsuleSphereStart;
+            float3 capsuleVector = capsuleEnd - capsuleStart;
             float3 capsuleVectorDirection = math.normalize(capsuleVector);
 
             // float3 nearestPointOnRay = NearestPointOnRayToLine(rayStart, rayDirection, rayLength, capsuleSphereBottom, capsuleVectorDirection);
 
-            float3 nearestPointOnCapsuleRay = NearestPointOnRayToLine(capsuleSphereStart, capsuleVectorDirection, capsuleLength, rayStart, rayDirection);
+            float3 nearestPointOnCapsuleSeg = NearestPointOnRayToLine(capsuleStart, capsuleVectorDirection, capsuleLength, rayStart, rayDirection);
             // Capsule ray is from sphereBottom to sphereTop positions
 
-            bool isIntersecting = IsRaySphereIntersecting(rayStart, rayDirection, rayLength, nearestPointOnCapsuleRay, capsuleRadius, out float3 _);
+            bool isIntersecting = IsRaySphereIntersecting(rayStart, rayDirection, rayLength, nearestPointOnCapsuleSeg, capsuleRadius, out float3 _);
             // IsPointCapsuleIntersecting
 
-            /* CommonLib.CreatePrimitive(PrimitiveType.Sphere, nearestPointOnCapsuleRay, new float3(0.1f), Color.red, new Quaternion(), 5.0f);
+            /* CommonLib.CreatePrimitive(PrimitiveType.Sphere, nearestPointOnCapsuleSeg, new float3(0.1f), Color.red, new Quaternion(), 5.0f);
             CommonLib.CreatePrimitive(PrimitiveType.Sphere, _, new float3(0.1f), Color.yellow, new Quaternion(), 5.0f); */
-            return isIntersecting;
+            return isIntersecting; // TODO: If true, now test the other way around to be certain
         }
         return false;
     }
@@ -149,9 +152,9 @@ public static class MathLib
             && (minPosBox1.z <= maxPosBox2.z && minPosBox2.z <= maxPosBox1.z));
     }
 
-    public static void CapsuleToAABB(float3 capsuleSphereStart, float3 capsuleSphereEnd, float capsuleRadius, out float3 minPosition, out float3 maxPosition) {
-        float3 minBtwSpheres = math.min(capsuleSphereStart, capsuleSphereEnd);
-        float3 maxBtwSpheres = math.max(capsuleSphereStart, capsuleSphereEnd);
+    public static void CapsuleToAABB(float3 capsuleStart, float3 capsuleEnd, float capsuleRadius, out float3 minPosition, out float3 maxPosition) {
+        float3 minBtwSpheres = math.min(capsuleStart, capsuleEnd);
+        float3 maxBtwSpheres = math.max(capsuleStart, capsuleEnd);
         
         float3 toCapsuleMaxPos = new float3(capsuleRadius);
         minPosition = minBtwSpheres - toCapsuleMaxPos;
