@@ -355,11 +355,20 @@ public class CreateWalls : MonoBehaviour
 
             float3 lineStart2 = GameObject.Find("RayStart2").transform.position;
             float3 lineEnd2 = GameObject.Find("RayEnd2").transform.position;
-            List<float3> cellCoords3 = new List<float3>();
+            
+            /* List<float3> cellCoords3 = new List<float3>();
             buildingGrid.RasterRayTest(lineStart2, lineEnd2, ref cellCoords3);
-            // print("Count2: " + cellCoords3.Count);
+            print("Count3: " + cellCoords3.Count);
+            if (cellCoords3.Count > 100) {
+                Debug.Log("Error");
+                return; }
             for (int i = 0; i < cellCoords3.Count; i++) {
                 CommonLib.CreatePrimitive(PrimitiveType.Cube, cellCoords3[i] + new float3(0,0.05f,0), new float3(0.1f, 0.1f, 0.1f), Color.red, new Quaternion(), 1.0f);
+            } */
+
+            float3[] heights = Terrain.activeTerrain.SampleSegHeights(lineStart2, lineEnd2);
+            for (int i = 0; i < heights.Length; i++) {
+                CommonLib.CreatePrimitive(PrimitiveType.Cube, heights[i] + new float3(0,0.05f,0), new float3(0.1f, 0.1f, 0.1f), Color.red, new Quaternion(), 1.0f);
             }
         }
     }

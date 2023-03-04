@@ -172,6 +172,11 @@ public static class MathLib
         maxPosition = math.max(rayStart, rayEnd);
     }
 
+    public static int2 WorldToCellCoords(float3 position, float3 bottomLeftWorld, float cellSize) {
+        float3 relativeToBottomLeftPos = (position - bottomLeftWorld)/ cellSize;
+	    return new int2((int)relativeToBottomLeftPos.x, (int)relativeToBottomLeftPos.z);
+    }
+
     public static float3 PointToLocal(float3 point, float4x4 invMatrix) {
         float4 localPos = math.mul(invMatrix, new float4(point, 1));
         return new float3(localPos.xyz);
@@ -189,5 +194,52 @@ public static class MathLib
         float3 tangent = CalcTangentToNormal(normal);
         float3 bitangent = math.cross(tangent, normal); // Example: upVector for a wall
         return quaternion.LookRotation(normal, bitangent);
-    } 
+    }
+
+
+    public static List<float3> SegGridIntersections(float3 rayStart, float3 rayEnd, float3 bottomLeftWorld, float cellSize) {
+        List<float3> intersectionPoints = new List<float3>();
+
+        float3 rayVector = rayEnd - rayStart;
+        float3 startRelativeToBottomLeftPos = (rayStart - bottomLeftWorld) / cellSize; // Needed
+
+        int2 startCoords = MathLib.WorldToCellCoords(rayStart, bottomLeftWorld, cellSize);
+        int2 endCoords = MathLib.WorldToCellCoords(rayEnd, bottomLeftWorld, cellSize);
+
+        int signY = (rayVector.z > 0) ? 1 : -1;
+        int signX = (rayVector.x > 0) ? 1 : -1;
+        float slopeM = rayVector.z / rayVector.x;
+        float interceptB = (-slopeM * startRelativeToBottomLeftPos.x) + startRelativeToBottomLeftPos.z;
+
+        int numXGridLinesBtw = math.abs(endCoords.x - startCoords.x);
+        int boolX = (signX > 0) ? 1 : 0; // For offsetting x axis values when ray is negative x
+        int boolY = (signY > 0) ? 1 : 0;
+
+        int currentX = startCoords.x + (1 - boolX);
+        int currentY = startCoords.y;
+        for (int I = 0; I < numXGridLinesBtw; I++) {
+            int X = startCoords.x + (I * signX) + boolX;
+            float YExact = (slopeM * X + interceptB);
+            int Y = (int)YExact; // y = m * x + b (where b is initial z position)
+
+            intersectionPoints.Add(bottomLeftWorld + (cellSize * new float3((currentX + signX), 0, YExact)));
+            
+            for (int Y0 = currentY; Y0 != Y; Y0 += signY) {
+                float XExact = ((Y0 + boolY) - interceptB) / slopeM; // x = (y - b)/m
+                intersectionPoints.Add(bottomLeftWorld + (cellSize * new float3(XExact, 0, (Y0 + boolY))));
+
+                if (math.abs(Y0 - Y) > 100) { Debug.Log("Too many"); Debug.Assert(false); }
+            }
+            currentX = X;  currentY = Y;
+        }
+
+        for (int Y0 = currentY; Y0 != endCoords.y; Y0 += signY) {
+            float XExact = ((Y0 + boolY) - interceptB) / slopeM; // x = (y - b)/m
+            intersectionPoints.Add(bottomLeftWorld + (cellSize * new float3(XExact, 0, (Y0 + boolY))));
+
+            if (math.abs(Y0 - endCoords.y) > 100) { Debug.Log("Too many end"); Debug.Assert(false); }
+        }
+
+        return intersectionPoints;
+    }
 }

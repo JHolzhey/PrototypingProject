@@ -62,8 +62,7 @@ public class BuildingGrid
     }
 
     public int2 WorldToCellCoords(float3 position) {
-        float3 relativeToBottomLeftPos = (position - bottomLeftWorld)/ cellSize;
-	    return new int2((int)relativeToBottomLeftPos.x, (int)relativeToBottomLeftPos.z);
+        return MathLib.WorldToCellCoords(position, bottomLeftWorld, cellSize);
     }
 
     public void RayCast(Ray ray, float3 rayEnd, out RayCastResult hitResultInfo, float maxDistance = math.INFINITY) {
@@ -122,44 +121,6 @@ public class BuildingGrid
         }
         for (int Y0 = currentY; Y0 != endCoords.y + signY; Y0 += signY)
             rasterCellCoords.Add(new int2(currentX - (1 - boolX), Y0));
-    }
-
-    public void RasterRayTest(float3 rayStart, float3 rayEnd, ref List<float3> rasterCellCoords)
-    {
-        float3 rayVector = rayEnd - rayStart;
-        float3 startRelativeToBottomLeftPos = (rayStart - bottomLeftWorld) / cellSize;
-
-        int2 startCoords = WorldToCellCoords(rayStart);
-        int2 endCoords = WorldToCellCoords(rayEnd);
-
-        int signY = (rayVector.z > 0) ? 1 : -1;
-        int signX = (rayVector.x > 0) ? 1 : -1;
-        float slopeM = rayVector.z / rayVector.x;
-        float interceptB = (-slopeM * startRelativeToBottomLeftPos.x) + startRelativeToBottomLeftPos.z;
-
-        int numXGridLinesBtw = math.abs(endCoords.x - startCoords.x);
-        int boolX = (signX > 0) ? 1 : 0; // For offsetting x axis values when ray is negative x
-        int shiftX = (signX > 0) ? 1 : -1;
-
-        int currentX = startCoords.x + (1 - boolX);  int currentY = startCoords.y;
-        for (int I = 0; I < numXGridLinesBtw; I++) {
-            int X = startCoords.x + (I * signX) + boolX;
-            float YExact = (slopeM * X + interceptB);
-            int Y = (int)YExact; // y = m * x + b (where b is initial z position)
-
-            rasterCellCoords.Add(bottomLeftWorld + new float3((currentX + shiftX), 0, YExact));
-            
-            for (int Y0 = currentY; Y0 != Y; Y0 += signY) {
-                float XExact = (Y0 - interceptB) / slopeM; // x = (y - b)/m
-                rasterCellCoords.Add(bottomLeftWorld + new float3(XExact, 0, Y0));
-            }
-                // Debug.Log("Stuff: " + (currentX - (1 - boolX)));
-
-            currentX = X;  currentY = Y;
-        }
-        // for (int Y0 = currentY; Y0 != endCoords.y + signY; Y0 += signY)
-        //     rasterCellCoords.Add(bottomLeftWorld + new float3((currentX - (1 - boolX)), 0, YExact));
-        //     rasterCellCoords.Add(new int2(currentX - (1 - boolX), Y0));
     }
 
     public List<int2> RasterEdge(float3 rayStart, float3 rayEnd, bool isReverse = false) { // Only for testing right now
@@ -359,7 +320,7 @@ public class BuildingGrid
             bool isUpperContinue = upperIndex < upperCellCoords.Count;
 
             if (isLowerContinue && isUpperContinue && math.all(upperCellCoords[upperIndex] == lowerCellCoords[lowerIndex])) {
-                CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(upperCellCoords[upperIndex]) + upShift, new float3(size, 0.2f, size), Color.black, new Quaternion(), 1.0f);
+                    // CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(upperCellCoords[upperIndex]) + upShift, new float3(size, 0.2f, size), Color.black, new Quaternion(), 1.0f);
                 // Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size, 0.2f, size));
                 // Check
                 
@@ -368,26 +329,26 @@ public class BuildingGrid
             } else {
                 // Lower work:
                 if (isLowerContinue) {
-                    CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(lowerCellCoords[lowerIndex]) + upShift, new float3(size, 0.2f, size), Color.blue, new Quaternion(), 1.0f);
+                        // CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(lowerCellCoords[lowerIndex]) + upShift, new float3(size, 0.2f, size), Color.blue, new Quaternion(), 1.0f);
                     // Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsLower[lowerIndex]) + upShift, new float3(size, 0.2f, size));
                     // Check
                     
                     if (isUpperContinue && ((lowerIndex + 1) < lowerCellCoords.Count) && math.all(lowerCellCoords[lowerIndex + 1] == upperCellCoords[upperIndex])) {
                         lowerIndex++; // Don't check sphere cast colliding here
-                        CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(lowerCellCoords[lowerIndex]) + upShift, new float3(size-0.3f, 0.4f, size-0.3f), Color.blue, new Quaternion(), 1.0f);
+                            // CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(lowerCellCoords[lowerIndex]) + upShift, new float3(size-0.3f, 0.4f, size-0.3f), Color.blue, new Quaternion(), 1.0f);
                         // Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsLower[lowerIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f));
                     }
                     lowerIndex++; // TODO: Put in if part
                 }
                 // Upper work:
                 if (isUpperContinue) {
-                    CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(upperCellCoords[upperIndex]) + upShift, new float3(size, 0.2f, size), Color.red, new Quaternion(), 1.0f);
+                        // CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(upperCellCoords[upperIndex]) + upShift, new float3(size, 0.2f, size), Color.red, new Quaternion(), 1.0f);
                     // Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size, 0.2f, size));
                     // Check
                     
                     if (isLowerContinue && ((upperIndex + 1) < upperCellCoords.Count) && math.all(upperCellCoords[upperIndex + 1] == lowerCellCoords[lowerIndex - 1])) { // lowerIndex - 1 because incremented earlier
                         upperIndex++; // Don't check sphere cast colliding here
-                        CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(upperCellCoords[upperIndex]) + upShift, new float3(size-0.3f, 0.4f, size-0.3f), Color.red, new Quaternion(), 1.0f);
+                            // CommonLib.CreatePrimitive(PrimitiveType.Cube, CellCoordsToWorld(upperCellCoords[upperIndex]) + upShift, new float3(size-0.3f, 0.4f, size-0.3f), Color.red, new Quaternion(), 1.0f);
                         // Gizmos.DrawWireCube(buildingGrid.CellCoordsToWorld(cellCoordsUpper[upperIndex]) + upShift, new float3(size-0.3f, 0.2f, size-0.3f));   
                     }
                     upperIndex++;
