@@ -355,7 +355,11 @@ public class CreateWalls : MonoBehaviour
 
             float3 lineStart2 = GameObject.Find("RayStart2").transform.position;
             float3 lineEnd2 = GameObject.Find("RayEnd2").transform.position;
-            
+
+            print(MathLib.CalcHeadingAngle(lineStart2, lineEnd2));
+
+            GameObject.Find("RayStart2").transform.localRotation = MathLib.CalcHeadingRotation(lineStart2, lineEnd2);
+
             /* List<float3> cellCoords3 = new List<float3>();
             buildingGrid.RasterRayTest(lineStart2, lineEnd2, ref cellCoords3);
             print("Count3: " + cellCoords3.Count);

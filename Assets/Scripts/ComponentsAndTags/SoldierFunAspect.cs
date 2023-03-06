@@ -3,7 +3,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 
-public readonly partial struct WorldAspect : IAspect // (https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/aspects-concepts.html)
+public readonly partial struct SoldierFunAspect : IAspect // (https://docs.unity3d.com/Packages/com.unity.entities@1.0/manual/aspects-concepts.html)
 {
     public readonly Entity entity;
     private readonly TransformAspect _transformAspect;
@@ -73,7 +73,7 @@ public readonly partial struct WorldAspect : IAspect // (https://docs.unity3d.co
         return new LocalTransform
         {
             Position = position,
-            Rotation = MathLib.CalcHeadingRotation(position, _transformAspect.LocalPosition),
+            Rotation = MathLib.CalcHeadingRotation(position, _transformAspect.WorldPosition),
             Scale = 1f,
         };
     }

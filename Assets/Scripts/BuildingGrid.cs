@@ -395,6 +395,7 @@ public class BuildingGrid
         }
     }
 
+    // TODO: Doesn't work when ray goes over top of other polygon
     public bool RayCast(TestEntity[] entitiesHack, RayInput ray, out RayCastResult nearestHit, bool collectAllHits = false) { // Make RayCastResult an array
         nearestHit = new RayCastResult(-1, float3.zero, math.INFINITY, float3.zero);
 
@@ -505,18 +506,22 @@ public struct RayInput2
 
 public struct CapsuleCollider : ICollider // Future: Call it CastInput and hold a ray or capsule collider
 {
+    readonly public bool isAA;
     readonly public float3 start;
     readonly public float3 end;
     readonly public float3 direction;
     readonly public float length;
     public float radius;
+    public ColliderSection[] colliderSections;
 
     readonly public float3 minPosition;
     readonly public float3 maxPosition;
 
+    public CapsuleCollider(float3 bottom, float length, float radius) : this(bottom + math.up()*radius, bottom + math.up()*(length + radius), math.up(), length, radius) {}
     public CapsuleCollider(float3 start, float3 end, float radius = 0) : this(start, end, math.normalize(end - start), math.length(end - start), radius) {}
     public CapsuleCollider(float3 start, float3 direction, float length = 100, float radius = 0) : this(start, start + direction*length, direction, length, radius) {}
-    public CapsuleCollider(float3 start, float3 end, float3 direction, float length, float radius) {
+    public CapsuleCollider(float3 start, float3 end, float3 direction, float length, float radius) : this() {
+        this.isAA = false;
         this.start = start;
         this.end = end;
         this.direction = direction;
@@ -527,6 +532,18 @@ public struct CapsuleCollider : ICollider // Future: Call it CastInput and hold 
     }
 
     public void AddToGrid(BuildingGrid grid, int entityIndex) {
+        if (isAA) {
+            grid.AddEntityToCell(start, entityIndex);
+        } else {
+            float3 distanceVector = end - start;
+            distanceVector.y = 0;
+            float horizontalDistanceSq = math.lengthsq(distanceVector);
+            if (horizontalDistanceSq < MathLib.Square(grid.cellSize*2)) {
+                colliderSections = new ColliderSection[2];
+                // Unfinished
+            }
+        }
+        // if small enough just add start and end separately (unless they're in the same cell)
         // grid.AddEntityToCell(center, entityIndex);
     }
 

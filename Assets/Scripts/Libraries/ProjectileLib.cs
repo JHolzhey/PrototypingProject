@@ -208,8 +208,9 @@ public struct Projectile {
                     // float3 reflectDirection = math.reflect(velocityDirection, terrainNormal);
                     float restitution = 0.5f;
                     //float normalForce = mass * GlobalConstants.GRAVITY * math.dot(math.up(), terrainNormal);
-                    float3 perpendicularVelocity = math.project(velocity, terrainNormal);
-                    float3 parallelVelocity = velocity - perpendicularVelocity;
+                    MathLib.CalcPerpParaFromNormal(velocity, terrainNormal, out float3 perpendicularVelocity, out float3 parallelVelocity);
+                    // float3 perpendicularVelocity = math.project(velocity, terrainNormal);
+                    // float3 parallelVelocity = velocity - perpendicularVelocity;
                     float3 result = (parallelVelocity) - (restitution * perpendicularVelocity);
                     
                     // float3 reflectedVelocity = MathLib.Reflect(hitVelocity, terrainNormal, 0.4f);

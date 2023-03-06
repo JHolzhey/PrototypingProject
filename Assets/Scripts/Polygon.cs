@@ -191,7 +191,6 @@ public struct Polygon : ICollider // Clockwise. low-level struct
     }
 
     public float3 IsSphereInConvex(float3 point, float radius, float3 rayDirection) { // TODO: Hasn't been tested with enough planes yet. pointOnPlane is assumed to actually be on plane
-        
         float3 rayRight = math.cross(math.up(), rayDirection);
         float3 rayUp = math.cross(rayRight, rayDirection);
         
@@ -305,18 +304,18 @@ public struct SphereCollider : ICollider {
 public struct ColliderSection {
     internal ICollider collider; // Probably would need a pointer so maybe just use Entity
 
-    EntityType typeMask; // To speed up physics since we probably won't have access to collider in this struct // But might delete since only EntityID is stored in grid
+    EntityType type; // To speed up physics since we probably won't have access to collider in this struct // But might delete since only EntityID is stored in grid
     internal int Entity;
     internal byte cellIndex;
     internal int2 cellCoords;
 
     // bool isWallEnd; // Can just check if the collider 
 
-    public ColliderSection(EntityType typeMask, ICollider collider, int Entity, byte cellIndex, int2 cellCoords) {
+    public ColliderSection(EntityType type, ICollider collider, int Entity, byte cellIndex, int2 cellCoords) {
         this.collider = collider;
         this.Entity = Entity;
         this.cellIndex = cellIndex;
         this.cellCoords = cellCoords;
-        this.typeMask = typeMask;
+        this.type = type;
     }
 }

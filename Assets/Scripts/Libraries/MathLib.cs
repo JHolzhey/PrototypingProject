@@ -90,7 +90,7 @@ public static class MathLib
         float3 distanceToLinePos = math.length(rejection) / math.dot(line1Direction, math.normalize(rejection));
         return line1Point - line1Direction * distanceToLinePos;
     }
-
+    // Abstract below with the above
     public static float3 NearestPointOnRayToLine(float3 rayStart, float3 rayDirection, float rayLength, float3 linePoint, float3 lineDirection)
     {
         float3 posDiff = rayStart - linePoint;
@@ -190,10 +190,25 @@ public static class MathLib
         return math.normalize(tangent);
     }
 
+    public static void CalcPerpParaFromNormal(float3 vector, float3 normal, out float3 perpendicular, out float3 parallel)
+    {
+        perpendicular = math.project(vector, normal);
+        parallel = vector - perpendicular;
+    }
+
     public static quaternion CalcRotationFromNormal(float3 normal) {
         float3 tangent = CalcTangentToNormal(normal);
         float3 bitangent = math.cross(tangent, normal); // Example: upVector for a wall
         return quaternion.LookRotation(normal, bitangent);
+    }
+
+    public static float CalcHeadingAngle(float3 start, float3 end) {
+        return math.atan2(start.x - end.x, start.z - end.z) + math.PI*0.5f;
+        // return math.atan2(end.z - start.z, end.x - start.x);
+    }
+
+    public static quaternion CalcHeadingRotation(float3 start, float3 end) {
+        return quaternion.RotateY(CalcHeadingAngle(start, end));
     }
 
 
